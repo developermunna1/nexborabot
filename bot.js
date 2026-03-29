@@ -16,9 +16,9 @@ bot.start((ctx) => {
 🆔 <b>Your Chat ID:</b> <code>${chat_id}</code> (Click to copy)
 
 Send cards (one per line):
-/co <url> <cards>
-/inv <url> <cards>
-/bill <url> <cards>
+/co [url] [cards]
+/inv [url] [cards]
+/bill [url] [cards]
 
 Card format:
 4242424242424242|12|26|123

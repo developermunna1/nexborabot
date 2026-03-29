@@ -40,11 +40,14 @@ app.listen(PORT, () => {
   startKeepAlive();
   
   // Launch Bot
-  bot.launch().then(() => {
-    console.log('✅ Telegram Bot is active!');
-  }).catch(err => {
-    console.error('❌ Failed to start Telegram Bot:', err);
-  });
+  bot.launch()
+    .then(() => {
+      console.log('✅ Telegram Bot is active!');
+    })
+    .catch(err => {
+      console.error('❌ Telegram Bot Error:', err.message);
+      console.log('⚠️ Server will continue running without the bot.');
+    });
 
   // Enable graceful stop
   process.once('SIGINT', () => bot.stop('SIGINT'));

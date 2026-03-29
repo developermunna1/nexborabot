@@ -1,7 +1,9 @@
 @echo off
-echo --- Pushing updates to GitHub ---
+echo --- Preparation: Cleaning up and Adding files ---
 git add .
-git commit -m "Update Chat ID system and fix Python bot tokens"
-git push origin main
-echo --- Done! Render will start deploying soon. ---
+git add --all
+git commit -m "Final Fix: Porting Bot to Node.js cleanly"
+echo --- Pushing to GitHub Main ---
+git push origin main --force
+echo --- Done! Please check Render Dashboard now ---
 pause

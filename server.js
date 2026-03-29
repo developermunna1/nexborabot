@@ -32,8 +32,21 @@ function startKeepAlive() {
   }
 }
 
+const bot = require('./bot');
+
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
   console.log(`Open http://localhost:${PORT} to view your app`);
   startKeepAlive();
+  
+  // Launch Bot
+  bot.launch().then(() => {
+    console.log('✅ Telegram Bot is active!');
+  }).catch(err => {
+    console.error('❌ Failed to start Telegram Bot:', err);
+  });
+
+  // Enable graceful stop
+  process.once('SIGINT', () => bot.stop('SIGINT'));
+  process.once('SIGTERM', () => bot.stop('SIGTERM'));
 });

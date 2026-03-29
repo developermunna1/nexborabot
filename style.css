@@ -80,13 +80,22 @@ body {
 .gate-tabs {
     display: flex;
     gap: 10px;
+    overflow-x: auto;
+    padding-bottom: 5px;
+    scrollbar-width: none; /* Hide scrollbar Firefox */
+    -ms-overflow-style: none; /* Hide scrollbar IE/Edge */
+}
+
+.gate-tabs::-webkit-scrollbar {
+    display: none; /* Hide scrollbar Chrome/Safari */
 }
 
 .gate-tab {
-    flex: 1;
+    flex: 0 0 auto;
+    min-width: 140px;
     background: var(--bg-tab);
     border: 1px solid var(--border);
-    padding: 12px 10px;
+    padding: 10px 12px;
     border-radius: var(--radius);
     display: flex;
     align-items: center;
@@ -147,6 +156,18 @@ body {
     outline: none;
     font-size: 14px;
     transition: var(--transition);
+}
+
+.input-hint {
+    font-size: 0.7rem;
+    color: var(--text-sub);
+    margin-top: 4px;
+}
+
+.input-hint a {
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 600;
 }
 
 .main-input:focus, .main-textarea:focus {

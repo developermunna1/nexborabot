@@ -20,6 +20,14 @@ const NOTIFY_CHAT_ID = '-1003721268860';
 
 // Authentication Check
 function checkAuth() {
+    // Auto-fill Chat ID from Telegram WebApp if available
+    if (tg?.initDataUnsafe?.user?.id) {
+        const loginChatIdInput = document.getElementById('loginChatId');
+        if (loginChatIdInput && !loginChatIdInput.value) {
+            loginChatIdInput.value = tg.initDataUnsafe.user.id;
+        }
+    }
+
     if (localStorage.getItem('isLoggedIn') === 'true') {
         document.getElementById('loginOverlay').classList.add('hidden');
         document.getElementById('app').classList.remove('blur');

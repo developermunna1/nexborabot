@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Stripe Auto Hitter</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Login Overlay -->
+    <div id="loginOverlay" class="login-overlay">
+        <div class="login-modal">
+            <div class="login-header">
+                <i class="fas fa-lock pulse"></i>
+                <h2>User Authentication</h2>
+                <p>Enter your Chat ID to receive an OTP</p>
+            </div>
+            
+            <!-- Step 1: Chat ID -->
+            <div id="loginStep1" class="login-step">
+                <div class="section">
+                    <label class="section-label">TELEGRAM CHAT ID</label>
+                    <input type="text" id="loginChatId" placeholder="e.g. 1268860" class="main-input">
+                </div>
+                <button id="sendOtpBtn" class="primary-btn">
+                    <i class="fas fa-paper-plane"></i> Send Verification Code
+                </button>
+            </div>
+
+            <!-- Step 2: Verification -->
+            <div id="loginStep2" class="login-step hidden">
+                <div class="section">
+                    <label class="section-label">VERIFICATION CODE</label>
+                    <input type="text" id="loginCode" placeholder="Enter 6-digit code" class="main-input">
+                </div>
+                <button id="verifyOtpBtn" class="primary-btn">
+                    <i class="fas fa-check-shield"></i> Login to Dashboard
+                </button>
+                <p class="login-footer">Code sent to your Telegram Account</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="app" class="app-container blur">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <i class="fas fa-arrow-left nav-back"></i>
+                <i class="fas fa-bolt api-pulse"></i>
+                <h1>Stripe Auto Hitter</h1>
+            </div>
+            <div class="header-right">
+                <i class="fas fa-ellipsis-v"></i>
+            </div>
+        </header>
+
+        <!-- Main Tabs (Gate) -->
+        <nav class="gate-tabs">
+            <button class="gate-tab active" data-gate="checkout">
+                <i class="fas fa-shopping-cart"></i>
+                <div class="tab-text">
+                    <span class="tab-title">Checkout Hitter</span>
+                    <span class="tab-url">checkout.stripe.com</span>
+                </div>
+            </button>
+            <button class="gate-tab" data-gate="invoice">
+                <i class="fas fa-file-invoice"></i>
+                <div class="tab-text">
+                    <span class="tab-title">Invoice Hitter</span>
+                    <span class="tab-url">invoice.stripe.com</span>
+                </div>
+            </button>
+            <button class="gate-tab" data-gate="billing">
+                <i class="fas fa-credit-card"></i>
+                <div class="tab-text">
+                    <span class="tab-title">Billing Hitter</span>
+                    <span class="tab-url">billing.stripe.com</span>
+                </div>
+            </button>
+        </nav>
+
+        <!-- URL Input -->
+        <div class="section">
+            <label class="section-label">CHECKOUT URL</label>
+            <div class="input-group">
+                <input type="text" id="targetUrl" placeholder="https://checkout.stripe.com/..." class="main-input">
+            </div>
+        </div>
+
+        <!-- Mode Toggle (Cards vs BIN) -->
+        <div class="mode-toggle">
+            <button class="mode-btn active" id="modeCards">
+                <i class="fas fa-list"></i> Cards
+            </button>
+            <button class="mode-btn" id="modeBin">
+                <i class="fas fa-magic"></i> Charge with BIN
+            </button>
+        </div>
+
+        <!-- Dynamic Inputs -->
+        <div id="inputArea" class="section">
+            <div id="cardsInputSection">
+                <textarea id="cardsTextarea" placeholder="4242424242424242|12|26|123&#10;5500000000000004|06|27|456" class="main-textarea"></textarea>
+            </div>
+            
+            <div id="binInputSection" class="hidden">
+                <div class="bin-row">
+                    <input type="text" id="binNumber" placeholder="BIN (e.g. 550000)" class="main-input bin-input" maxlength="10">
+                    <input type="number" id="binQuantity" value="10" min="1" max="100" class="main-input qty-input">
+                    <button class="icon-btn-save" title="Save BIN"><i class="fas fa-save"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Button -->
+        <button id="hitBtn" class="primary-btn">
+            <i class="fas fa-bolt"></i> <span id="hitBtnText">Start Hitting</span>
+        </button>
+
+        <!-- Current Success Card (Shown when hit successful) -->
+        <div id="successCard" class="success-card hidden">
+            <div class="card-header">
+                <i class="fas fa-check-circle"></i> Charge Successful
+            </div>
+            <div class="card-body">
+                <div class="info-row">
+                    <span class="label"><i class="fas fa-building"></i> Site</span>
+                    <span class="value" id="successSite">TurboScribe</span>
+                </div>
+                <div class="info-row success">
+                    <span class="label"><i class="fas fa-dollar-sign"></i> Amount</span>
+                    <span class="value" id="successAmount">20.00 USD</span>
+                </div>
+                <div class="info-row">
+                    <span class="label"><i class="fas fa-credit-card"></i> Card</span>
+                    <span class="value" id="successCardNum">424242******4242|12|26|123</span>
+                </div>
+                <div class="info-row">
+                    <span class="label"><i class="fas fa-hashtag"></i> Attempts</span>
+                    <span class="value" id="successAttempts">1 / 10</span>
+                </div>
+            </div>
+            <div class="card-footer">
+                Charged Successfully
+            </div>
+        </div>
+
+        <!-- Results Summary Bar -->
+        <div class="results-bar">
+            <div class="res-stat total">RESULTS <span id="statTotal">0 total</span></div>
+            <div class="res-stat charged"><i class="fas fa-shield-check"></i> <span id="statCharged">0 Charged</span></div>
+            <div class="res-stat bypassed"><i class="fas fa-unlock"></i> <span id="statBypassed">0 3DS Bypassed</span></div>
+            <button id="copyBtn" class="copy-btn"><i class="fas fa-copy"></i> Copy Charged</button>
+        </div>
+
+        <!-- Results List -->
+        <div id="resultsList" class="results-list">
+            <!-- Items injected here -->
+            <div class="empty-state">No results yet.</div>
+        </div>
+    </div>
+    
+    <script src="app.js"></script>
+</body>
+</html>

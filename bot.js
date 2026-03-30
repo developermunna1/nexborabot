@@ -2,7 +2,7 @@ const { Telegraf } = require('telegraf');
 const axios = require('axios');
 
 const API_URL = "https://hitter1month.replit.app";
-const API_KEY = "hitchk_86d5f00d4d0078e7db5e4bc68322362f798d04e6ba20569d";
+const API_KEY = "hitchk_fe782eea00073ea6a8326c7f9737ba7387673ad3cdd500c9";
 const BOT_TOKEN = "8680374467:AAEcO6m-O6BOQD0mec7cyURfqQ8Ax2bphkk";
 
 const bot = new Telegraf(BOT_TOKEN);

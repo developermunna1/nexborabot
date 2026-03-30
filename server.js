@@ -53,7 +53,9 @@ function checkDailyReset(user) {
   return false;
 }
 
-// Check Plan Expiry
+// --- DATABASE & OTP LOGIC ---
+const otpStore = new Map(); // chatId -> { otp, expires }
+
 function checkPlanExpiry(user) {
   if (user.plan !== 'free' && user.expiry) {
     if (new Date() > new Date(user.expiry)) {
@@ -173,6 +175,40 @@ app.post('/get-user-info', (req, res) => {
     expiry: user.expiry,
     referralCount: user.referralCount || 0
   });
+});
+
+// Send OTP via Bot
+app.post('/send-otp', async (req, res) => {
+    const { chatId } = req.body;
+    if (!chatId) return res.status(400).json({ error: 'Chat ID required' });
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    otpStore.set(chatId, { otp, expires: Date.now() + 5 * 60 * 1000 }); // 5 min expiry
+
+    const message = `🔐 <b>Verification Code</b>\n\nYour OTP for <b>Auto Hitter App</b> is: <code>${otp}</code>\n\nDon't share this code with anyone.`;
+    
+    try {
+        const bot = require('./bot'); // Ensure bot is available
+        await bot.telegram.sendMessage(chatId, message, { parse_mode: 'HTML' });
+        console.log(`[OTP] Sent to ${chatId}`);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('[OTP] Failed to send:', err.message);
+        res.status(500).json({ error: 'Failed to send OTP. Make sure you started the bot!' });
+    }
+});
+
+// Verify OTP
+app.post('/verify-otp', (req, res) => {
+    const { chatId, code, referrerId } = req.body;
+    const stored = otpStore.get(chatId);
+
+    if (!stored || stored.otp !== code || Date.now() > stored.expires) {
+        return res.status(400).json({ error: 'Invalid or expired code' });
+    }
+
+    otpStore.delete(chatId); // Clear after use
+    res.json({ success: true });
 });
 
 // Hit Proxy with Limit Checks

@@ -101,38 +101,31 @@ function logout() {
     location.reload();
 }
 
-// Send OTP
+// Send OTP via Server
 document.getElementById('sendOtpBtn').addEventListener('click', async () => {
     const chatId = document.getElementById('loginChatId').value.trim();
     if (!chatId) { alert('Please enter your Chat ID'); return; }
 
-    currentOtp = Math.floor(100000 + Math.random() * 900000).toString();
     currentChatId = chatId;
 
     const btn = document.getElementById('sendOtpBtn');
     btn.disabled = true;
     btn.innerText = 'Sending...';
 
-    const message = `🔐 <b>Verification Code</b>\n\nYour OTP for Auto Hitter App is: <code>${currentOtp}</code>\n\nDon't share this code with anyone.`;
-
     try {
-        const resp = await fetch(`https://api.telegram.org/bot${NOTIFY_BOT_TOKEN}/sendMessage`, {
+        const resp = await fetch('/send-otp', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                chat_id: chatId,
-                text: message,
-                parse_mode: 'HTML'
-            })
+            body: JSON.stringify({ chatId })
         });
 
         const data = await resp.json();
-        if (data.ok) {
+        if (resp.ok) {
             document.getElementById('loginStep1').classList.add('hidden');
             document.getElementById('loginStep2').classList.remove('hidden');
             if (tg) tg.HapticFeedback.notificationOccurred('success');
         } else {
-            alert('Error: Make sure you have started @autohittrobot first!');
+            alert(data.error || 'Failed to send OTP.');
         }
     } catch (err) {
         alert('Failed to send code. Check your internet.');
@@ -142,36 +135,45 @@ document.getElementById('sendOtpBtn').addEventListener('click', async () => {
     }
 });
 
-// Verify OTP
+// Verify OTP via Server
 document.getElementById('verifyOtpBtn').addEventListener('click', async () => {
-    const inputCode = document.getElementById('loginCode').value.trim();
-    if (inputCode === currentOtp) {
-        localStorage.setItem('isLoggedIn', 'true');
-        localStorage.setItem('userChatId', currentChatId);
+    const code = document.getElementById('loginCode').value.trim();
+    const referrerId = tg?.initDataUnsafe?.start_param || null;
+
+    if (!code) return alert('Enter the code');
+
+    try {
+        const response = await fetch('/verify-otp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chatId: currentChatId, code, referrerId })
+        });
         
-        // Final sync with server (handles referral if this is first launch)
-        const referrerId = tg?.initDataUnsafe?.start_param || null;
-        try {
+        const data = await response.json();
+        if (response.ok) {
+             // Final registration/sync
             await fetch('/get-user-info', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ chatId: currentChatId, referrerId })
             });
-        } catch (e) {}
 
-        document.getElementById('loginOverlay').classList.add('hidden');
-        document.getElementById('app').classList.remove('blur');
-        
-        if (tg) {
-            tg.HapticFeedback.notificationOccurred('success');
-            tg.showPopup({ message: 'Login Successful!' });
+            localStorage.setItem('isLoggedIn', 'true');
+            localStorage.setItem('userChatId', currentChatId);
+            
+            document.getElementById('loginOverlay').classList.add('hidden');
+            document.getElementById('app').classList.remove('blur');
+            
+            if (tg) {
+                tg.HapticFeedback.notificationOccurred('success');
+                tg.showPopup({ message: 'Login Successful!' });
+            }
+            checkAuth();
+        } else {
+            alert(data.error || 'Invalid Code');
         }
-        
-        // Refresh Plan UI
-        checkAuth();
-    } else {
-        alert('Invalid Code! Please check your Telegram.');
-        if (tg) tg.HapticFeedback.notificationOccurred('error');
+    } catch (err) {
+        alert('Server connection lost');
     }
 });
 
@@ -186,6 +188,8 @@ const resultsList = document.getElementById('resultsList');
 const successCard = document.getElementById('successCard');
 
 // Stats Elements
+const statTotal = document.getElementById('statTotal');
+const statCharged = document.getElementById('statCharged');
 const statBypassed = document.getElementById('statBypassed');
 
 // Link Preview Elements

@@ -25,21 +25,37 @@ app.post('/analyze-link', async (req, res) => {
       timeout: 10000
     });
 
-    const html = response.data;
+    const html = response.data.toString();
     
     // Extract Business Name
-    let siteName = 'Unknown Site';
-    const siteMatch = html.match(/"account_name":"([^"]+)"/) || html.match(/<title>([^<]+)<\/title>/);
-    if (siteMatch) siteName = siteMatch[1].replace(' - Stripe Checkout', '').trim();
+    let siteName = 'Stripe Checkout';
+    const sitePatterns = [
+      /"account_name":"([^"]+)"/,
+      /"merchantName":"([^"]+)"/,
+      /"business_name":"([^"]+)"/,
+      /<title>([^<]+)<\/title>/
+    ];
+
+    for (const pattern of sitePatterns) {
+      const match = html.match(pattern);
+      if (match && match[1]) {
+        siteName = match[1].replace(' - Stripe Checkout', '').replace('Stripe Checkout - ', '').trim();
+        break;
+      }
+    }
 
     // Extract Amount and Currency
     let amount = 'Unknown';
-    const amountMatch = html.match(/"total":(\d+)/) || html.match(/"amount":(\d+)/);
-    const currencyMatch = html.match(/"currency":"([^"]+)"/);
+    const amountMatch = html.match(/"total":(\d+)/) || html.match(/"amount":(\d+)/) || html.match(/"amount_total":(\d+)/) || html.match(/"unit_amount":(\d+)/);
+    const currencyMatch = html.match(/"currency":"([^"]+)"/) || html.match(/"currency_code":"([^"]+)"/);
     
     if (amountMatch && currencyMatch) {
       const value = (parseInt(amountMatch[1]) / 100).toFixed(2);
       amount = `${value} ${currencyMatch[1].toUpperCase()}`;
+    } else if (amountMatch) {
+      // Fallback if currency is missing
+      const value = (parseInt(amountMatch[1]) / 100).toFixed(2);
+      amount = `${value} USD`; // Common default
     }
 
     res.json({ site: siteName, amount: amount });

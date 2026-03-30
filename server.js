@@ -7,8 +7,58 @@ const PORT = process.env.PORT || 3000;
 const axios = require('axios');
 
 // Serve static files from the current directory
+const fs = require('fs');
+
+// Serve static files from the current directory
 app.use(express.static(__dirname));
-app.use(express.json());
+app.use(express.json({ limit: '50mb' })); // Increase limit for mass cards
+
+// --- DATABASE LOGIC ---
+const DB_FILE = path.join(__dirname, 'database.json');
+
+function readDB() {
+  try {
+    if (!fs.existsSync(DB_FILE)) {
+      fs.writeFileSync(DB_FILE, JSON.stringify({ users: {}, redeem_codes: {} }, null, 2));
+    }
+    const data = fs.readFileSync(DB_FILE, 'utf8');
+    return JSON.parse(data);
+  } catch (err) {
+    console.error('Error reading DB:', err);
+    return { users: {}, redeem_codes: {} };
+  }
+}
+
+function writeDB(data) {
+  try {
+    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
+  } catch (err) {
+    console.error('Error writing DB:', err);
+  }
+}
+
+// Daily Limit Reset Logic
+function checkDailyReset(user) {
+  const today = new Date().toDateString();
+  if (user.last_hit_date !== today) {
+    user.hits_today = 0;
+    user.last_hit_date = today;
+    return true;
+  }
+  return false;
+}
+
+// Check Plan Expiry
+function checkPlanExpiry(user) {
+  if (user.plan !== 'free' && user.expiry) {
+    if (new Date() > new Date(user.expiry)) {
+      user.plan = 'free';
+      user.expiry = null;
+      return true;
+    }
+  }
+  return false;
+}
 
 // Link Analysis Endpoint (Updated to use User's Local Extraction API)
 app.post('/analyze-link', async (req, res) => {
@@ -61,6 +111,151 @@ app.post('/analyze-link', async (req, res) => {
   }
 });
 
+
+// --- USER & HIT MANAGEMENT ---
+
+// Get User Plan Info
+app.post('/get-user-info', (req, res) => {
+  const { chatId } = req.body;
+  if (!chatId) return res.status(400).json({ error: 'Chat ID required' });
+
+  const db = readDB();
+  let user = db.users[chatId];
+
+  if (!user) {
+    user = {
+      plan: 'free',
+      hits_today: 0,
+      last_hit_date: new Date().toDateString(),
+      expiry: null
+    };
+    db.users[chatId] = user;
+    writeDB(db);
+  }
+
+  checkDailyReset(user);
+  checkPlanExpiry(user);
+  writeDB(db);
+
+  res.json({
+    chatId,
+    plan: user.plan,
+    hitsToday: user.hits_today,
+    maxHits: user.plan === 'free' ? 2 : 'Unlimited',
+    expiry: user.expiry
+  });
+});
+
+// Hit Proxy with Limit Checks
+app.post('/hit-proxy/:gate', async (req, res) => {
+  const { gate } = req.params;
+  const { chatId, card, url } = req.body;
+
+  if (!chatId || !card || !url) {
+    return res.status(400).json({ error: 'Missing parameters (chatId, card, or url)' });
+  }
+
+  const db = readDB();
+  const user = db.users[chatId];
+
+  if (!user) {
+    return res.status(403).json({ error: 'User not registered. Please login.' });
+  }
+
+  checkDailyReset(user);
+  checkPlanExpiry(user);
+
+  // Enforce Limit for Free Plan
+  if (user.plan === 'free' && user.hits_today >= 2) {
+    return res.status(403).json({ 
+      error: 'Limit Reached', 
+      message: 'You have reached your daily limit of 2 hits. Upgrade to Silver/Gold for unlimited access!' 
+    });
+  }
+
+  try {
+    const API_KEY = 'hitchk_c321efa228654c3433cf37b8d6aa38b42e83ded5325d504f';
+    const API_URL = 'https://hitter1month.replit.app';
+
+    const response = await axios.post(`${API_URL}/hit/${gate}`, {
+        url,
+        card
+    }, {
+        headers: { 'X-API-Key': API_KEY, 'Content-Type': 'application/json' },
+        timeout: 120000
+    });
+
+    // Update Hit Count if request was processed
+    user.hits_today++;
+    writeDB(db);
+
+    res.json({
+      ...response.data,
+      remainingHits: user.plan === 'free' ? (2 - user.hits_today) : 'Unlimited'
+    });
+  } catch (err) {
+    console.error('Hit Failed:', err.message);
+    res.status(500).json({ error: 'System Error', message: err.message });
+  }
+});
+
+// Redeem Code Endpoint
+app.post('/redeem-code', (req, res) => {
+  const { chatId, code } = req.body;
+  if (!chatId || !code) return res.status(400).json({ error: 'Chat ID and Code required' });
+
+  const db = readDB();
+  const userData = db.users[chatId];
+  const codeData = db.redeem_codes[code];
+
+  if (!codeData || codeData.status !== 'active') {
+    return res.status(400).json({ error: 'Invalid or Used Code' });
+  }
+
+  if (!userData) {
+    return res.status(404).json({ error: 'User not found. Please login first.' });
+  }
+
+  // Set Plan and Expiry (Default 7 days)
+  const expiryDate = new Date();
+  expiryDate.setDate(expiryDate.getDate() + 7);
+
+  userData.plan = codeData.plan;
+  userData.expiry = expiryDate.toISOString();
+  codeData.status = 'used';
+  codeData.usedBy = chatId;
+
+  writeDB(db);
+
+  res.json({ 
+    success: true, 
+    plan: userData.plan, 
+    expiry: userData.expiry,
+    message: `Congratulations! Your ${userData.plan.toUpperCase()} plan is now active for 7 days!`
+  });
+});
+
+// --- ADMIN ENDPOINTS ---
+const ADMIN_PWD = 'admin123';
+
+app.post('/admin/generate-code', (req, res) => {
+  const { password, plan } = req.body;
+  if (password !== ADMIN_PWD) return res.status(401).json({ error: 'Unauthorized' });
+
+  const code = 'HIT-' + Math.random().toString(36).substring(2, 10).toUpperCase();
+  const db = readDB();
+  db.redeem_codes[code] = { plan, status: 'active', createdAt: new Date().toISOString() };
+  writeDB(db);
+
+  res.json({ code, plan });
+});
+
+app.post('/admin/users', (req, res) => {
+  const { password } = req.body;
+  if (password !== ADMIN_PWD) return res.status(401).json({ error: 'Unauthorized' });
+  const db = readDB();
+  res.json(db.users);
+});
 
 // Ping endpoint
 app.get('/ping', (req, res) => {

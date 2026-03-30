@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Stripe Auto Hitter</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { background: #0f111a; color: white; font-family: 'Inter', sans-serif; }
+        .admin-container { max-width: 800px; margin: 40px auto; padding: 20px; }
+        .admin-card { background: #1a1c23; border: 1px solid #2d2f39; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+        input, select { background: #0f111a; border: 1px solid #2d2f39; color: white; padding: 10px; border-radius: 6px; margin-bottom: 10px; width: 100%; }
+        button { background: #3b82f6; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: 600; }
+        .code-display { background: #064e3b; color: #34d399; padding: 15px; border-radius: 8px; font-weight: 700; font-size: 20px; text-align: center; margin-top: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #2d2f39; font-size: 14px; }
+        .plan-tag { padding: 4px 8px; border-radius: 4px; font-size: 12px; text-transform: uppercase; }
+        .plan-tag.free { background: #374151; }
+        .plan-tag.silver { background: #1e3a8a; }
+        .plan-tag.gold { background: #92400e; }
+    </style>
+</head>
+<body>
+    <div class="admin-container">
+        <h1>Admin Dashboard</h1>
+        
+        <div id="loginSection" class="admin-card">
+            <h3>Admin Login</h3>
+            <input type="password" id="adminPwd" placeholder="Enter Admin Password">
+            <button onclick="loadAdmin()">Login</button>
+        </div>
+
+        <div id="adminContent" class="hidden">
+            <div class="admin-card">
+                <h3>Generate Redeem Code</h3>
+                <select id="codePlan">
+                    <option value="silver">Silver Plan ($5)</option>
+                    <option value="gold">Gold Plan ($7)</option>
+                </select>
+                <button onclick="generateCode()">Generate Code</button>
+                <div id="codeResult" class="hidden">
+                    <div class="code-display" id="generatedCode"></div>
+                    <p style="font-size: 12px; margin-top: 5px; color: #888;">Share this code with the user.</p>
+                </div>
+            </div>
+
+            <div class="admin-card">
+                <h3>Registered Users</h3>
+                <button onclick="loadUsers()">Refresh Users</button>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Chat ID</th>
+                            <th>Plan</th>
+                            <th>Hits Today</th>
+                            <th>Expiry</th>
+                        </tr>
+                    </thead>
+                    <tbody id="userList">
+                        <!-- User list injected here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let password = '';
+
+        function loadAdmin() {
+            password = document.getElementById('adminPwd').value;
+            if (!password) return alert('Enter password');
+            
+            // Validate password by trying to fetch users
+            fetchUsers();
+        }
+
+        async function fetchUsers() {
+            try {
+                const res = await fetch('/admin/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password })
+                });
+                const data = await res.json();
+                
+                if (data.error) {
+                    alert('Invalid Password');
+                } else {
+                    document.getElementById('loginSection').classList.add('hidden');
+                    document.getElementById('adminContent').classList.remove('hidden');
+                    renderUsers(data);
+                }
+            } catch (e) { alert('Connection Error'); }
+        }
+
+        function renderUsers(users) {
+            const tbody = document.getElementById('userList');
+            tbody.innerHTML = '';
+            for (const [id, user] of Object.entries(users)) {
+                const tr = document.createElement('tr');
+                const expiry = user.expiry ? new Date(user.expiry).toLocaleDateString() : 'N/A';
+                tr.innerHTML = `
+                    <td><code>${id}</code></td>
+                    <td><span class="plan-tag ${user.plan}">${user.plan}</span></td>
+                    <td>${user.hits_today} / ${user.plan === 'free' ? 2 : '∞'}</td>
+                    <td>${expiry}</td>
+                `;
+                tbody.appendChild(tr);
+            }
+        }
+
+        async function generateCode() {
+            const plan = document.getElementById('codePlan').value;
+            try {
+                const res = await fetch('/admin/generate-code', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password, plan })
+                });
+                const data = await res.json();
+                if (data.code) {
+                    document.getElementById('codeResult').classList.remove('hidden');
+                    document.getElementById('generatedCode').innerText = data.code;
+                }
+            } catch (e) { alert('Failed to generate code'); }
+        }
+
+        async function loadUsers() {
+            fetchUsers();
+        }
+    </script>
+</body>
+</html>

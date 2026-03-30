@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Plans & Pricing - Stripe Auto Hitter</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .plans-container {
+            padding: 20px;
+            max-width: 500px;
+            margin: 0 auto;
+            color: #fff;
+        }
+        .plans-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .plans-header h2 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        .plans-header p {
+            color: #888;
+            font-size: 14px;
+        }
+        .plan-card {
+            background: #1a1c23;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            border: 1px solid #2d2f39;
+            position: relative;
+            transition: transform 0.2s;
+        }
+        .plan-card.active {
+            border-color: #3b82f6;
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.2);
+        }
+        .plan-badge {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: #2d2f39;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .plan-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+        .plan-title i {
+            color: #3b82f6;
+        }
+        .plan-price {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+        .plan-price span {
+            font-size: 14px;
+            color: #888;
+            font-weight: 400;
+        }
+        .plan-features {
+            margin: 20px 0;
+            list-style: none;
+            padding: 0;
+        }
+        .plan-features li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            font-size: 14px;
+            border-bottom: 1px solid #252731;
+        }
+        .plan-features li:last-child {
+            border-bottom: none;
+        }
+        .feature-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #bbb;
+        }
+        .feature-label i {
+            font-size: 12px;
+        }
+        .feature-label i.fa-check { color: #10b981; }
+        .feature-label i.fa-xmark { color: #ef4444; }
+        .feature-value {
+            font-weight: 600;
+        }
+        .feature-value.highlight {
+            color: #10b981;
+        }
+        .plan-btn {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: opacity 0.2s;
+        }
+        .btn-current {
+            background: #2563eb;
+            color: white;
+            opacity: 0.8;
+            cursor: default;
+        }
+        .btn-buy {
+            background: #2d2f39;
+            color: white;
+            border: 1px solid #3b82f6;
+        }
+        .btn-gold {
+            background: #f59e0b;
+            color: black;
+        }
+        
+        .redeem-section {
+            background: #1a1c23;
+            border: 1px solid #2d2f39;
+            padding: 20px;
+            border-radius: 12px;
+            margin-top: 30px;
+        }
+        .redeem-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        .redeem-icon {
+            background: #1e293b;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            color: #3b82f6;
+        }
+        .redeem-row {
+            display: flex;
+            gap: 10px;
+        }
+        .redeem-input {
+            flex: 1;
+            background: #0f111a;
+            border: 1px solid #2d2f39;
+            padding: 12px;
+            border-radius: 8px;
+            color: white;
+            font-family: inherit;
+        }
+        .redeem-btn {
+            background: #3b82f6;
+            color: white;
+            padding: 0 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            border: none;
+        }
+        .back-nav {
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            font-size: 18px;
+            font-weight: 600;
+            border-bottom: 1px solid #252731;
+            margin-bottom: 10px;
+            cursor: pointer;
+        }
+        .status-badge {
+            display: inline-block;
+            background: #064e3b;
+            color: #34d399;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="back-nav" onclick="window.location.href='/'">
+            <i class="fas fa-arrow-left"></i>
+            <span>Plans & Pricing</span>
+        </div>
+
+        <div class="plans-container">
+            <div class="plans-header">
+                <h2>Choose Your Plan</h2>
+                <p>Upgrade to unlock more power and higher limits</p>
+            </div>
+
+            <!-- Free Plan -->
+            <div class="plan-card" id="planCardFree">
+                <div class="plan-title">
+                    <i class="fas fa-bolt"></i>
+                    <span>Free</span>
+                </div>
+                <div class="plan-price">Free <span>forever</span></div>
+                <button class="plan-btn btn-current" id="btnFree" disabled>Current Plan</button>
+                
+                <ul class="plan-features">
+                    <li>
+                        <div class="feature-label"><i class="fas fa-check"></i> Daily CC Checks</div>
+                        <div class="feature-value">500</div>
+                    </li>
+                    <li>
+                        <div class="feature-label"><i class="fas fa-check"></i> Auto Hitter</div>
+                        <div class="feature-value">2 Hits/Day</div>
+                    </li>
+                    <li>
+                        <div class="feature-label"><i class="fas fa-check"></i> Account Checker</div>
+                        <div class="feature-value">Single Only</div>
+                    </li>
+                    <li>
+                        <div class="feature-label"><i class="fas fa-xmark"></i> Gateway Finder</div>
+                        <div class="feature-value">Not Available</div>
+                    </li>
+                    <li>
+                        <div class="feature-label"><i class="fas fa-check highlight"></i> Sites / Proxy / SK</div>
+                        <div class="feature-value highlight">Unlimited</div>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Silver Plan -->
+            <div class="plan-card" id="planCardSilver">
+                <div class="plan-badge">Most Popular</div>
+                <div class="plan-title">
+                    <i class="fas fa-star"></i>
+                    <span>Silver</span>
+                </div>
+                <div class="plan-price">$5 <span>/ 7 days</span></div>
+                <button class="plan-btn btn-buy" onclick="window.open('https://t.me/autohittrobot', '_blank')">
+                    <i class="fas fa-external-link-alt"></i> Buy Now — $5
+                </button>
+                
+                <ul class="plan-features">
+                    <li>
+                        <div class="feature-label"><i class="fas fa-check"></i> Daily CC Checks</div>
+                        <div class="feature-value">5,000</div>
+                    </li>
+                    <li>
+                        <div class="feature-label"><i class="fas fa-check highlight"></i> Auto Hitter</div>
+                        <div class="feature-value highlight">Unlimited</div>
+                    </li>
+                    <li>
+                        <div class="feature-label"><i class="fas fa-check"></i> Account Checker</div>
+                        <div class="feature-value">Mass 500</div>
+                    </li>
+                    <li>
+                        <div class="feature-label"><i class="fas fa-check"></i> Gateway Finder</div>
+                        <div class="feature-value">3/day</div>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Gold Plan -->
+            <div class="plan-card" id="planCardGold" style="border-color: #f59e0b;">
+                <div class="plan-badge" style="background: #f59e0b; color: #000;">Best Value</div>
+                <div class="plan-title" style="color: #f59e0b;">
+                    <i class="fas fa-crown" style="color: #f59e0b;"></i>
+                    <span>Gold</span>
+                </div>
+                <div class="plan-price">$7 <span>/ 7 days</span></div>
+                <button class="plan-btn btn-gold" onclick="window.open('https://t.me/autohittrobot', '_blank')">
+                    <i class="fas fa-external-link-alt"></i> Buy Now — $7
+                </button>
+                
+                <ul class="plan-features">
+                    <li>
+                        <div class="feature-label"><i class="fas fa-check"></i> Daily CC Checks</div>
+                        <div class="feature-value highlight">Unlimited</div>
+                    </li>
+                    <li>
+                        <div class="feature-label"><i class="fas fa-check highlight"></i> Auto Hitter</div>
+                        <div class="feature-value highlight">Unlimited</div>
+                    </li>
+                    <li>
+                        <div class="feature-label"><i class="fas fa-check"></i> Account Checker</div>
+                        <div class="feature-value">Mass 1,000</div>
+                    </li>
+                    <li>
+                        <div class="feature-label"><i class="fas fa-check"></i> Gateway Finder</div>
+                        <div class="feature-value">10/day</div>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Redeem Section -->
+            <div class="redeem-section">
+                <div class="redeem-header">
+                    <div class="redeem-icon"><i class="fas fa-gift"></i></div>
+                    <div>
+                        <div style="font-weight: 600;">Redeem Code</div>
+                        <div style="font-size: 12px; color: #888;">Have a redemption key? Enter it below.</div>
+                    </div>
+                </div>
+                <div class="redeem-row">
+                    <input type="text" id="redeemCode" class="redeem-input" placeholder="ENTER YOUR REDEEM CODE">
+                    <button id="redeemBtn" class="redeem-btn"><i class="fas fa-gift"></i> Redeem</button>
+                </div>
+                <p style="font-size: 11px; color: #666; margin-top: 15px; text-align: center;">
+                    Click "Buy Now" to contact admin on Telegram for key.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const chatId = localStorage.getItem('userChatId');
+        if (!chatId) window.location.href = '/';
+
+        async function updatePlanUI() {
+            try {
+                const res = await fetch('/get-user-info', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ chatId })
+                });
+                const data = await res.json();
+                
+                // Reset UI
+                document.querySelectorAll('.plan-card').forEach(c => c.classList.remove('active'));
+                document.querySelectorAll('.plan-btn').forEach(b => {
+                    if(!b.classList.contains('btn-current')) b.style.display = 'flex';
+                });
+                
+                const planIdMap = { free: 'Free', silver: 'Silver', gold: 'Gold' };
+                const activePlan = planIdMap[data.plan];
+                
+                const card = document.getElementById(`planCard${activePlan}`);
+                card.classList.add('active');
+                
+                const btn = document.getElementById(`btnFree`); // Placeholder since only free has ID
+                // For simplified logic, just hide "Buy Now" for current plan if needed, 
+                // but the screenshot shows current plan button.
+            } catch (e) {}
+        }
+
+        document.getElementById('redeemBtn').onclick = async () => {
+            const code = document.getElementById('redeemCode').value.trim();
+            if (!code) return alert('Enter a code');
+
+            const btn = document.getElementById('redeemBtn');
+            btn.disabled = true;
+            btn.innerText = 'Verifying...';
+
+            try {
+                const res = await fetch('/redeem-code', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ chatId, code })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert(data.message);
+                    location.reload();
+                } else {
+                    alert(data.error || 'Invalid Code');
+                }
+            } catch (e) {
+                alert('Connection Error');
+            } finally {
+                btn.disabled = false;
+                btn.innerText = 'Redeem';
+            }
+        };
+
+        updatePlanUI();
+    </script>
+</body>
+</html>

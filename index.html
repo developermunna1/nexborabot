@@ -3,187 +3,176 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Stripe Auto Hitter</title>
+    <title>Home - Stripe Auto Hitter</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .home-container { padding: 20px; max-width: 500px; margin: 0 auto; color: white; }
+        .hero { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); padding: 30px; border-radius: 20px; text-align: center; margin-bottom: 25px; border: 1px solid #1e293b; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
+        .hero h1 { font-size: 32px; font-weight: 800; margin-bottom: 10px; background: linear-gradient(to right, #3b82f6, #60a5fa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .hero p { color: #888; font-size: 15px; margin-bottom: 20px; }
+        .launch-btn { background: #3b82f6; color: white; font-weight: 700; font-size: 18px; padding: 15px 30px; border-radius: 12px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4); margin-bottom: 15px; }
+        .grid-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .nav-card { background: #1a1c23; border: 1px solid #2d2f39; padding: 20px; border-radius: 15px; display: flex; flex-direction: column; align-items: center; gap: 10px; cursor: pointer; transition: transform 0.2s; }
+        .nav-card:hover { transform: translateY(-3px); border-color: #3b82f6; }
+        .nav-card i { font-size: 24px; color: #3b82f6; }
+        .nav-card span { font-size: 14px; font-weight: 600; }
+        .stats-box { background: #1a1c23; border: 1px solid #2d2f39; border-radius: 15px; padding: 20px; margin-top: 25px; }
+        .stat-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .stat-item:last-child { margin-bottom: 0; }
+        .stat-label { color: #888; font-size: 13px; }
+        .stat-value { font-weight: 700; font-size: 14px; }
+        .plan-tag { background: #3b82f6; color: white; padding: 4px 8px; border-radius: 4px; text-transform: uppercase; font-size: 10px; }
+        .referral-progress { background: #0f111a; height: 10px; border-radius: 5px; margin-top: 15px; overflow: hidden; }
+        .progress-bar { background: #10b981; height: 100%; border-radius: 5px; width: 0%; transition: width 0.5s; }
+        .logout-btn-home { margin-top: 30px; text-align: center; color: #ef4444; font-size: 14px; cursor: pointer; }
+    </style>
 </head>
 <body>
-    <!-- Login Overlay -->
+    <!-- Login Overlay (Same as before) -->
     <div id="loginOverlay" class="login-overlay">
         <div class="login-modal">
             <div class="login-header">
                 <i class="fas fa-lock pulse"></i>
-                <h2>User Authentication</h2>
-                <p>Enter your Chat ID to receive an OTP</p>
+                <h2>Welcome Back</h2>
+                <p>Authenticating via Telegram...</p>
             </div>
-            
-            <!-- Step 1: Chat ID -->
             <div id="loginStep1" class="login-step">
-                <div class="section">
-                    <label class="section-label">TELEGRAM CHAT ID</label>
-                    <input type="text" id="loginChatId" placeholder="e.g. 1268860" class="main-input">
-                    <p class="input-hint">Find your ID by sending <b>/start</b> to <a href="https://t.me/autohittrobot" target="_blank">@autohittrobot</a></p>
-                </div>
-                <button id="sendOtpBtn" class="primary-btn">
-                    <i class="fas fa-paper-plane"></i> Send Verification Code
-                </button>
+                <input type="text" id="loginChatId" placeholder="Enter Chat ID" class="main-input">
+                <button id="sendOtpBtn" class="primary-btn">Get Verification Code</button>
             </div>
-
-            <!-- Step 2: Verification -->
             <div id="loginStep2" class="login-step hidden">
-                <div class="section">
-                    <label class="section-label">VERIFICATION CODE</label>
-                    <input type="text" id="loginCode" placeholder="Enter 6-digit code" class="main-input">
-                </div>
-                <button id="verifyOtpBtn" class="primary-btn">
-                    <i class="fas fa-check-shield"></i> Login to Dashboard
-                </button>
-                <p class="login-footer">Code sent to your Telegram Account</p>
+                <input type="text" id="loginCode" placeholder="6-digit OTP" class="main-input">
+                <button id="verifyOtpBtn" class="primary-btn">Sign In</button>
             </div>
         </div>
     </div>
 
-    <div id="app" class="app-container blur">
-        <!-- Header -->
-        <header class="header">
-            <div class="header-left">
-                <i class="fas fa-sign-out-alt nav-back" onclick="logout()" title="Logout"></i>
-                <i class="fas fa-bolt api-pulse"></i>
-                <h1>Stripe Auto Hitter</h1>
-            </div>
-            <div class="header-right">
-                <div class="plan-status-mini" onclick="window.location.href='plans.html'">
-                    <i class="fas fa-crown"></i>
-                    <span id="planStatusText">Loading...</span>
-                </div>
-            </div>
-        </header>
-
-        <!-- Main Tabs (Gate) -->
-        <nav class="gate-tabs">
-            <button class="gate-tab active" data-gate="checkout">
-                <i class="fas fa-shopping-cart"></i>
-                <div class="tab-text">
-                    <span class="tab-title">Checkout Hitter</span>
-                    <span class="tab-url">checkout.stripe.com</span>
-                </div>
-            </button>
-            <button class="gate-tab" data-gate="invoice">
-                <i class="fas fa-file-invoice"></i>
-                <div class="tab-text">
-                    <span class="tab-title">Invoice Hitter</span>
-                    <span class="tab-url">invoice.stripe.com</span>
-                </div>
-            </button>
-            <button class="gate-tab" data-gate="billing">
-                <i class="fas fa-credit-card"></i>
-                <div class="tab-text">
-                    <span class="tab-title">Billing Hitter</span>
-                    <span class="tab-url">billing.stripe.com</span>
-                </div>
-            </button>
-        </nav>
-
-        <!-- URL Input -->
-        <div class="section">
-            <label class="section-label">CHECKOUT URL</label>
-            <div class="input-group">
-                <input type="text" id="targetUrl" placeholder="https://checkout.stripe.com/..." class="main-input">
-            </div>
-            
-            <!-- Link Preview Box -->
-            <div id="linkPreview" class="link-preview hidden">
-                <div class="preview-header">
-                    <span id="previewStatus">🔍 Analyzing Link...</span>
-                </div>
-                <div id="previewData" class="preview-data hidden">
-                    <div class="preview-item">
-                        <i class="fas fa-building"></i>
-                        <span id="previewSiteName">Loading...</span>
-                    </div>
-                    <div class="preview-item highlight">
-                        <i class="fas fa-dollar-sign"></i>
-                        <span id="previewAmount">0.00</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Mode Toggle (Cards vs BIN) -->
-        <div class="mode-toggle">
-            <button class="mode-btn active" id="modeCards">
-                <i class="fas fa-list"></i> Cards
-            </button>
-            <button class="mode-btn" id="modeBin">
-                <i class="fas fa-magic"></i> Charge with BIN
+    <div id="app" class="home-container blur">
+        <div class="hero">
+            <h1>Premium Hitter</h1>
+            <p>The smarter way to process Stripe Checkouts</p>
+            <button class="launch-btn" onclick="window.location.href='hitter.html'">
+                <i class="fas fa-bolt"></i> START HITTING
             </button>
         </div>
 
-        <!-- Dynamic Inputs -->
-        <div id="inputArea" class="section">
-            <div id="cardsInputSection">
-                <textarea id="cardsTextarea" placeholder="4242424242424242|12|26|123&#10;5500000000000004|06|27|456" class="main-textarea"></textarea>
+        <div class="grid-nav">
+            <div class="nav-card" onclick="window.location.href='referrals.html'">
+                <i class="fas fa-users-medical"></i>
+                <span>Invite & Earn</span>
             </div>
-            
-            <div id="binInputSection" class="hidden">
-                <div class="bin-row">
-                    <input type="text" id="binNumber" placeholder="BIN (e.g. 550000)" class="main-input bin-input" maxlength="10">
-                    <input type="number" id="binQuantity" value="10" min="1" max="100" class="main-input qty-input">
-                    <button class="icon-btn-save" title="Save BIN"><i class="fas fa-save"></i></button>
-                </div>
+            <div class="nav-card" onclick="window.location.href='plans.html'">
+                <i class="fas fa-crown"></i>
+                <span>Upgrade Plan</span>
             </div>
         </div>
 
-        <!-- Action Button -->
-        <button id="hitBtn" class="primary-btn">
-            <i class="fas fa-bolt"></i> <span id="hitBtnText">Start Hitting</span>
-        </button>
-
-        <!-- Current Success Card (Shown when hit successful) -->
-        <div id="successCard" class="success-card hidden">
-            <div class="card-header">
-                <i class="fas fa-check-circle"></i> Charge Successful
+        <div class="stats-box">
+            <div class="stat-item">
+                <span class="stat-label">CURRENT STATUS</span>
+                <span class="stat-value"><span id="homePlan" class="plan-tag">FREE</span></span>
             </div>
-            <div class="card-body">
-                <div class="info-row">
-                    <span class="label"><i class="fas fa-building"></i> Site</span>
-                    <span class="value" id="successSite">TurboScribe</span>
-                </div>
-                <div class="info-row success">
-                    <span class="label"><i class="fas fa-dollar-sign"></i> Amount</span>
-                    <span class="value" id="successAmount">20.00 USD</span>
-                </div>
-                <div class="info-row">
-                    <span class="label"><i class="fas fa-credit-card"></i> Card</span>
-                    <span class="value" id="successCardNum">424242******4242|12|26|123</span>
-                </div>
-                <div class="info-row">
-                    <span class="label"><i class="fas fa-hashtag"></i> Attempts</span>
-                    <span class="value" id="successAttempts">1 / 10</span>
-                </div>
+            <div class="stat-item">
+                <span class="stat-label">DAILY HITS REMAINING</span>
+                <span class="stat-value" id="homeHits">0</span>
             </div>
-            <div class="card-footer">
-                Charged Successfully
+            <div class="stat-item" style="margin-top: 15px; border-top: 1px solid #2d2f39; padding-top: 15px;">
+                <span class="stat-label">REFERRAL REWARDS (Silver Goal)</span>
+                <span class="stat-value" id="homeReferralText">0 / 5</span>
+            </div>
+            <div class="referral-progress">
+                <div class="progress-bar" id="homeProgressBar"></div>
             </div>
         </div>
 
-        <!-- Results Summary Bar -->
-        <div class="results-bar">
-            <div class="res-stat total">RESULTS <span id="statTotal">0 total</span></div>
-            <div class="res-stat charged"><i class="fas fa-shield-check"></i> <span id="statCharged">0 Charged</span></div>
-            <div class="res-stat bypassed"><i class="fas fa-unlock"></i> <span id="statBypassed">0 3DS Bypassed</span></div>
-            <button id="copyBtn" class="copy-btn"><i class="fas fa-copy"></i> Copy Charged</button>
-        </div>
-
-        <!-- Results List -->
-        <div id="resultsList" class="results-list">
-            <!-- Items injected here -->
-            <div class="empty-state">No results yet.</div>
+        <div class="logout-btn-home" onclick="logoutHome()">
+            <i class="fas fa-sign-out-alt"></i> LOGOUT FROM ACCOUNT
         </div>
     </div>
-    
-    <script src="app.js"></script>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        let currentChatId = localStorage.getItem('userChatId');
+
+        async function initHome() {
+            if (localStorage.getItem('isLoggedIn') !== 'true') return;
+
+            const startParam = tg?.initDataUnsafe?.start_param || null;
+            
+            try {
+                const res = await fetch('/get-user-info', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        chatId: currentChatId,
+                        referrerId: startParam // Pass the referrer if user is opening via link
+                    })
+                });
+                const data = await res.json();
+                
+                document.getElementById('homePlan').innerText = data.plan.toUpperCase();
+                document.getElementById('homeHits').innerText = data.maxHits === 'Unlimited' ? 'Unlimited' : (data.maxHits - data.hitsToday);
+                
+                const refCount = data.referralCount || 0;
+                document.getElementById('homeReferralText').innerText = `${refCount} / 5`;
+                document.getElementById('homeProgressBar').style.width = `${Math.min(refCount, 5) * 20}%`;
+
+                document.getElementById('app').classList.remove('blur');
+                document.getElementById('loginOverlay').classList.add('hidden');
+            } catch (e) {
+                console.error('Home init failed', e);
+            }
+        }
+
+        // --- AUTH LOGIC (Minimized Copy from app.js) ---
+        document.getElementById('sendOtpBtn').onclick = async () => {
+            const chatId = document.getElementById('loginChatId').value;
+            const res = await fetch('/send-otp', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chatId })
+            });
+            if (res.ok) {
+                document.getElementById('loginStep1').classList.add('hidden');
+                document.getElementById('loginStep2').classList.remove('hidden');
+            }
+        };
+
+        document.getElementById('verifyOtpBtn').onclick = async () => {
+            const chatId = document.getElementById('loginChatId').value;
+            const code = document.getElementById('loginCode').value;
+            const referrerId = tg?.initDataUnsafe?.start_param || null;
+
+            const res = await fetch('/verify-otp', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chatId, code, referrerId })
+            });
+            if (res.ok) {
+                localStorage.setItem('isLoggedIn', 'true');
+                localStorage.setItem('userChatId', chatId);
+                location.reload();
+            } else {
+                alert('Invalid Code');
+            }
+        };
+
+        function logoutHome() {
+            localStorage.clear();
+            location.reload();
+        }
+
+        window.onload = () => {
+            if (tg?.initDataUnsafe?.user?.id) {
+                document.getElementById('loginChatId').value = tg.initDataUnsafe.user.id;
+            }
+            if (localStorage.getItem('isLoggedIn') === 'true') {
+                initHome();
+            }
+        };
+    </script>
 </body>
 </html>

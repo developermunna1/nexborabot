@@ -119,23 +119,46 @@ app.post('/analyze-link', async (req, res) => {
 
 // --- USER & HIT MANAGEMENT ---
 
-// Get User Plan Info
+// Get User Plan Info & Handle Referrals
 app.post('/get-user-info', (req, res) => {
-  const { chatId } = req.body;
+  const { chatId, referrerId } = req.body;
   if (!chatId) return res.status(400).json({ error: 'Chat ID required' });
 
   const db = readDB();
   let user = db.users[chatId];
+  let isNewUser = false;
 
   if (!user) {
+    isNewUser = true;
     user = {
       plan: 'free',
       hits_today: 0,
       last_hit_date: new Date().toDateString(),
-      expiry: null
+      expiry: null,
+      referralCount: 0,
+      referredBy: null
     };
     db.users[chatId] = user;
-    writeDB(db);
+    console.log(`[Referral] New user registered: ${chatId}`);
+  }
+
+  // Handle Referral Logic for New Users
+  if (isNewUser && referrerId && referrerId !== chatId) {
+    const referrer = db.users[referrerId];
+    if (referrer) {
+      user.referredBy = referrerId;
+      referrer.referralCount = (referrer.referralCount || 0) + 1;
+      console.log(`[Referral] User ${chatId} referred by ${referrerId}. New count: ${referrer.referralCount}`);
+      
+      // Reward: 5 Referrals = Silver Plan for 7 days
+      if (referrer.referralCount === 5) {
+        const expiry = new Date();
+        expiry.setDate(expiry.getDate() + 7);
+        referrer.plan = 'silver';
+        referrer.expiry = expiry.toISOString();
+        console.log(`[Referral] User ${referrerId} reached 5 referrals! Upgraded to SILVER.`);
+      }
+    }
   }
 
   checkDailyReset(user);
@@ -147,7 +170,8 @@ app.post('/get-user-info', (req, res) => {
     plan: user.plan,
     hitsToday: user.hits_today,
     maxHits: user.plan === 'free' ? 2 : 'Unlimited',
-    expiry: user.expiry
+    expiry: user.expiry,
+    referralCount: user.referralCount || 0
   });
 });
 

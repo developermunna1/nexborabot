@@ -38,11 +38,14 @@ async function checkAuth() {
         currentChatId = chatId;
         
         try {
+            // Capture referral ID from Telegram start_param
+            const referrerId = tg?.initDataUnsafe?.start_param || null;
+
             // Sync User Info from Server
             const res = await fetch('/get-user-info', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ chatId })
+                body: JSON.stringify({ chatId, referrerId })
             });
             const data = await res.json();
             userPlan = data.plan;
@@ -119,12 +122,22 @@ document.getElementById('sendOtpBtn').addEventListener('click', async () => {
 });
 
 // Verify OTP
-document.getElementById('verifyOtpBtn').addEventListener('click', () => {
+document.getElementById('verifyOtpBtn').addEventListener('click', async () => {
     const inputCode = document.getElementById('loginCode').value.trim();
     if (inputCode === currentOtp) {
         localStorage.setItem('isLoggedIn', 'true');
         localStorage.setItem('userChatId', currentChatId);
         
+        // Final sync with server (handles referral if this is first launch)
+        const referrerId = tg?.initDataUnsafe?.start_param || null;
+        try {
+            await fetch('/get-user-info', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chatId: currentChatId, referrerId })
+            });
+        } catch (e) {}
+
         document.getElementById('loginOverlay').classList.add('hidden');
         document.getElementById('app').classList.remove('blur');
         
@@ -132,6 +145,9 @@ document.getElementById('verifyOtpBtn').addEventListener('click', () => {
             tg.HapticFeedback.notificationOccurred('success');
             tg.showPopup({ message: 'Login Successful!' });
         }
+        
+        // Refresh Plan UI
+        checkAuth();
     } else {
         alert('Invalid Code! Please check your Telegram.');
         if (tg) tg.HapticFeedback.notificationOccurred('error');

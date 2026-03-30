@@ -252,9 +252,26 @@ hitBtn.addEventListener('click', async () => {
                 })
             });
 
-            const result = await response.json();
             const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
-            
+
+            if (!response.ok) {
+                let errorDetails = `Status: ${response.status}`;
+                try {
+                    const errorText = await response.text();
+                    try {
+                        const errorJson = JSON.parse(errorText);
+                        errorDetails = errorJson.message || errorJson.error || errorDetails;
+                    } catch (e) {
+                        errorDetails = errorText.substring(0, 60) || errorDetails;
+                    }
+                } catch (e) {
+                    // Fallback if text parsing fails
+                }
+                injectLog(card, 'error', errorDetails, elapsed);
+                continue;
+            }
+
+            const result = await response.json();
             processHitResult(card, result, elapsed, i + 1, cards.length);
 
             // STOP IMMEDIATELY if hit is successful
@@ -264,7 +281,8 @@ hitBtn.addEventListener('click', async () => {
             }
         } catch (err) {
             console.error(err);
-            injectLog(card, 'error', 'Network Error or CORS', 0);
+            const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+            injectLog(card, 'error', `Network/CORS Error: ${err.message}`, elapsed);
         }
     }
 
@@ -276,7 +294,7 @@ hitBtn.addEventListener('click', async () => {
 
 function processHitResult(card, res, elapsed, count, total) {
     const status = res.status || 'dead';
-    const message = res.message || 'Unknown Response';
+    const message = res.message || res.error || (res.status ? `Status: ${res.status}` : 'No response message');
     
     stats.total++;
     

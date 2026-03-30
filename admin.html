@@ -47,6 +47,21 @@
             </div>
 
             <div class="admin-card">
+                <h3>Direct Activation (by Chat ID)</h3>
+                <input type="text" id="directChatId" placeholder="User Chat ID (e.g. 1268860)">
+                <select id="directPlan">
+                    <option value="silver">Silver Plan ($5)</option>
+                    <option value="gold">Gold Plan ($7)</option>
+                    <option value="free">Free Plan (Reset)</option>
+                </select>
+                <select id="directDuration">
+                    <option value="7days">7 Days Validity</option>
+                    <option value="permanent">Permanent (No Expiry)</option>
+                </select>
+                <button onclick="directUpdate()" id="directBtn">Activate Plan Now</button>
+            </div>
+
+            <div class="admin-card">
                 <h3>Registered Users</h3>
                 <button onclick="loadUsers()">Refresh Users</button>
                 <table>
@@ -126,6 +141,38 @@
                     document.getElementById('generatedCode').innerText = data.code;
                 }
             } catch (e) { alert('Failed to generate code'); }
+        }
+
+        async function directUpdate() {
+            const targetChatId = document.getElementById('directChatId').value.trim();
+            const plan = document.getElementById('directPlan').value;
+            const duration = document.getElementById('directDuration').value;
+
+            if (!targetChatId) return alert('Enter Chat ID');
+
+            const btn = document.getElementById('directBtn');
+            btn.disabled = true;
+            btn.innerText = 'Updating...';
+
+            try {
+                const res = await fetch('/admin/update-user', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password, targetChatId, plan, duration })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert(data.message);
+                    loadUsers();
+                } else {
+                    alert(data.error || 'Update Failed');
+                }
+            } catch (e) {
+                alert('Connection Error');
+            } finally {
+                btn.disabled = false;
+                btn.innerText = 'Activate Plan Now';
+            }
         }
 
         async function loadUsers() {

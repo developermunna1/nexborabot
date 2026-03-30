@@ -14,7 +14,9 @@ app.use(express.static(__dirname));
 app.use(express.json({ limit: '50mb' })); // Increase limit for mass cards
 
 // --- DATABASE LOGIC ---
-const DB_FILE = path.join(__dirname, 'database.json');
+// To persist on Render, mount a disk at /data and move database.json there
+const DATA_DIR = fs.existsSync('/data') ? '/data' : __dirname;
+const DB_FILE = path.join(DATA_DIR, 'database.json');
 
 function readDB() {
   try {
@@ -25,12 +27,15 @@ function readDB() {
     return JSON.parse(data);
   } catch (err) {
     console.error('Error reading DB:', err);
+    // Return empty if file is corrupt to prevent crash
     return { users: {}, redeem_codes: {} };
   }
 }
 
 function writeDB(data) {
   try {
+    // Atomic-like write: first write to temp, then rename (if possible) 
+    // for simplicity, just direct write here for now
     fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
   } catch (err) {
     console.error('Error writing DB:', err);
@@ -265,6 +270,39 @@ app.post('/admin/users', (req, res) => {
   if (password !== ADMIN_PWD) return res.status(401).json({ error: 'Unauthorized' });
   const db = readDB();
   res.json(db.users);
+});
+
+// DIRECT Activation by Chat ID
+app.post('/admin/update-user', (req, res) => {
+  const { password, targetChatId, plan, duration } = req.body;
+  if (password !== ADMIN_PWD) return res.status(401).json({ error: 'Unauthorized' });
+  if (!targetChatId || !plan) return res.status(400).json({ error: 'Chat ID and Plan required' });
+
+  const db = readDB();
+  let user = db.users[targetChatId];
+
+  if (!user) {
+    user = {
+      plan: 'free',
+      hits_today: 0,
+      last_hit_date: new Date().toDateString(),
+      expiry: null
+    };
+    db.users[targetChatId] = user;
+  }
+
+  user.plan = plan;
+  
+  if (duration === '7days') {
+    const expiry = new Date();
+    expiry.setDate(expiry.getDate() + 7);
+    user.expiry = expiry.toISOString();
+  } else if (duration === 'permanent') {
+    user.expiry = null; // No expiry (continues until removed)
+  }
+
+  writeDB(db);
+  res.json({ success: true, message: `User ${targetChatId} updated to ${plan.toUpperCase()} (${duration})` });
 });
 
 // Ping endpoint

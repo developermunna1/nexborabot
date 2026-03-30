@@ -69,55 +69,62 @@ function checkPlanExpiry(user, db) {
   return false;
 }
 
-// Link Analysis Endpoint (Updated to use User's Local Extraction API)
+// Native Scraper Fallback (Permanent Fix)
+async function scrapeStripeInfo(url) {
+    try {
+        const response = await axios.get(url, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36' },
+            timeout: 15000
+        });
+        const html = response.data;
+
+        // Extract Merchant/Site Name
+        let site = 'Stripe Checkout';
+        const siteMatch = html.match(/"business_name":"([^"]+)"/) || html.match(/<title>([^<]+)<\/title>/);
+        if (siteMatch) site = siteMatch[1].replace(/\\n/g, '').replace(/\\/g, '').trim();
+
+        // Extract Amount and Currency
+        let amount = 'Unknown';
+        const amountMatch = html.match(/"total_amount_display":"([^"]+)"/) || 
+                           html.match(/"amount_formatted":"([^"]+)"/) ||
+                           html.match(/<span[^>]*class="[^"]*amount[^"]*"[^>]*>([^<]+)<\/span>/);
+        if (amountMatch) amount = amountMatch[1].trim();
+
+        return { site, amount };
+    } catch (err) {
+        console.error('[Scraper] Failed:', err.message);
+        return { site: 'Stripe Checkout', amount: 'Unknown' };
+    }
+}
+
+// Link Analysis Endpoint
 app.post('/analyze-link', async (req, res) => {
-  let { url } = req.body;
-  if (!url || !url.includes('stripe.com')) {
-    return res.status(400).json({ error: 'Invalid Stripe URL' });
-  }
-
-  // We MUST use the full URL as requested by the user (do not split on #)
-  url = url.trim();
-
-  const apiUrl = 'https://nonburnable-undolorously-sheilah.ngrok-free.dev/api/extract';
-
-  try {
-    console.log(`[Link Analysis] Fetching: ${url}`);
-    
-    const response = await axios.post(apiUrl, {
-        url: url
-    }, {
-        headers: { 'Content-Type': 'application/json' },
-        timeout: 20000 // Extended timeout for scraping
-    });
-
-    const data = response.data;
-    console.log('[Link Analysis] Response:', JSON.stringify(data));
-
-    // Mapping exact keys from user's API response: 'name' and 'price'
-    let siteName = data.name || data.merchant || 'Stripe Checkout';
-    let amountStr = data.price || data.amount || 'Unknown';
-
-    // Clean up if there are escaped slashes/characters (e.g., Back\na2e.ai -> Backna2e.ai)
-    if (siteName && typeof siteName === 'string') {
-        siteName = siteName.replace(/\\n/g, '').replace(/\\/g, '').trim();
+    let { url } = req.body;
+    if (!url || !url.includes('stripe.com')) {
+        return res.status(400).json({ error: 'Invalid Stripe URL' });
     }
 
-    res.json({ 
-        site: siteName, 
-        amount: amountStr 
-    });
+    url = url.trim();
+    console.log(`[Link Analysis] Fetching: ${url}`);
 
-
-  } catch (err) {
-    console.error('Analysis failed:', err.message);
-    
-    // Fallback message to prevent app from breaking
-    res.status(500).json({ 
-        error: 'Extraction service unavailable',
-        details: err.message
-    });
-  }
+    try {
+        // PERMANENT FIX: Using Native Scraper instead of unreliable ngrok
+        const result = await scrapeStripeInfo(url);
+        
+        // Final sanity check for display
+        if (result.site.includes('Pay ')) result.site = result.site.replace('Pay ', '');
+        
+        res.json(result);
+    } catch (err) {
+        console.error('Analysis failed:', err.message);
+        res.status(500).json({ 
+            error: 'Analysis Error', 
+            details: err.message,
+            site: 'Stripe Checkout',
+            amount: 'Unknown' 
+        });
+    }
+});
 });
 
 

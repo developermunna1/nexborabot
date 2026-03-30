@@ -285,37 +285,44 @@ app.post('/hit-proxy/:gate', async (req, res) => {
         const API_KEY = 'hitchk_e03920c069910b8939f63f77897e1f0ff463f60f8b623f06';
         const API_URL = 'https://hitter1month.replit.app';
 
+        // Use validateStatus: () => true to prevent axios from throwing on 4xx/5xx responses
+        // from the hitter backend. This allows us to parse the status properly.
         const response = await axios.post(`${API_URL}/hit/${gate}`, {
             url,
             card
         }, {
             headers: { 'X-API-Key': API_KEY, 'Content-Type': 'application/json' },
-            timeout: 120000
+            timeout: 120000,
+            validateStatus: () => true 
         });
 
-        const result = response.data;
+        const result = response.data || {};
         const status = (result.status || '').toLowerCase();
 
-        // ONLY update Hit Count if the card was successfully CHARGED or APPROVED
+        // ONLY deduct from limit if strictly 'charged' or 'approved'
         if (status === 'charged' || status === 'approved') {
             user.hits_today++;
             writeDB(db);
-            console.log(`[Limit] Hit successful for ${chatId}. Hits today: ${user.hits_today}`);
-
-            // SEND NOTIFICATION FROM SERVER
+            console.log(`[Limit] SUCCESS for ${chatId}. Hits today: ${user.hits_today}`);
             sendHitNotification(card, result, gate, user.plan);
         } else {
-            console.log(`[Limit] Hit declined for ${chatId}. Limit not deducted.`);
+            console.log(`[Limit] FAILED/DECLINED for ${chatId} (${status}). Limit NOT deducted.`);
         }
 
+        // ALWAYS return current remaining hits even if the hit failed
         res.json({
             ...result,
             remainingHits: user.plan === 'free' ? (2 - user.hits_today) : 'Unlimited'
         });
 
     } catch (err) {
-        console.error('Hit Failed:', err.message);
-        res.status(500).json({ error: 'System Error', message: err.message });
+        console.error('Proxy System Error:', err.message);
+        // Even on internal proxy error, try to return current hits
+        res.status(500).json({ 
+            error: 'System Error', 
+            message: err.message,
+            remainingHits: user.plan === 'free' ? (2 - user.hits_today) : 'Unlimited'
+        });
     }
 });
 

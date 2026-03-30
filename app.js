@@ -419,7 +419,13 @@ hitBtn.addEventListener('click', async () => {
             });
 
             const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
-            const result = await response.json();
+            const result = await response.json().catch(() => ({}));
+
+            // ALWAYS update local hit count if returned from server
+            if (userPlan === 'free' && result.remainingHits !== undefined) {
+                remainingHits = result.remainingHits;
+                updateUIWithPlan();
+            }
 
             if (!response.ok) {
                 if (response.status === 403) {
@@ -429,12 +435,6 @@ hitBtn.addEventListener('click', async () => {
                 }
                 injectLog(card, 'error', result.message || 'System Error', elapsed);
                 continue;
-            }
-
-            // Update local hit count
-            if (userPlan === 'free') {
-                remainingHits = result.remainingHits;
-                updateUIWithPlan();
             }
 
             processHitResult(card, result, elapsed, i + 1, cards.length);

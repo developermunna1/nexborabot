@@ -4,8 +4,50 @@ const https = require('https');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+const axios = require('axios');
+
 // Serve static files from the current directory
 app.use(express.static(__dirname));
+app.use(express.json());
+
+// Link Analysis Endpoint
+app.post('/analyze-link', async (req, res) => {
+  const { url } = req.body;
+  if (!url || !url.includes('stripe.com')) {
+    return res.status(400).json({ error: 'Invalid Stripe URL' });
+  }
+
+  try {
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
+      },
+      timeout: 10000
+    });
+
+    const html = response.data;
+    
+    // Extract Business Name
+    let siteName = 'Unknown Site';
+    const siteMatch = html.match(/"account_name":"([^"]+)"/) || html.match(/<title>([^<]+)<\/title>/);
+    if (siteMatch) siteName = siteMatch[1].replace(' - Stripe Checkout', '').trim();
+
+    // Extract Amount and Currency
+    let amount = 'Unknown';
+    const amountMatch = html.match(/"total":(\d+)/) || html.match(/"amount":(\d+)/);
+    const currencyMatch = html.match(/"currency":"([^"]+)"/);
+    
+    if (amountMatch && currencyMatch) {
+      const value = (parseInt(amountMatch[1]) / 100).toFixed(2);
+      amount = `${value} ${currencyMatch[1].toUpperCase()}`;
+    }
+
+    res.json({ site: siteName, amount: amount });
+  } catch (err) {
+    console.error('Analysis failed:', err.message);
+    res.status(500).json({ error: 'Failed to analyze link' });
+  }
+});
 
 // Ping endpoint
 app.get('/ping', (req, res) => {

@@ -486,3 +486,56 @@ body {
 /* Scrollbar */
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
+/* Link Preview Styles */
+.link-preview {
+    margin-top: 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 12px;
+    animation: fadeIn 0.3s ease;
+}
+
+.preview-header {
+    font-size: 13px;
+    color: #888;
+    margin-bottom: 8px;
+}
+
+.preview-data {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.preview-item {
+    background: rgba(255, 255, 255, 0.03);
+    padding: 8px 12px;
+    border-radius: 8px;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.preview-item.highlight {
+    background: rgba(46, 213, 115, 0.1);
+    color: #2ed573;
+    font-weight: 700;
+}
+
+.preview-item i {
+    font-size: 14px;
+    opacity: 0.8;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+}

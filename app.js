@@ -12,6 +12,7 @@ let activeMode = 'cards';
 let isHitting = false;
 let currentOtp = null;
 let currentChatId = null;
+let analyzedData = { site: null, amount: null };
 
 const API_KEY = 'hitchk_fe782eea00073ea6a8326c7f9737ba7387673ad3cdd500c9';
 const API_URL = 'https://hitter1month.replit.app';
@@ -107,9 +108,15 @@ const resultsList = document.getElementById('resultsList');
 const successCard = document.getElementById('successCard');
 
 // Stats Elements
-const statTotal = document.getElementById('statTotal');
-const statCharged = document.getElementById('statCharged');
 const statBypassed = document.getElementById('statBypassed');
+
+// Link Preview Elements
+const targetUrlInput = document.getElementById('targetUrl');
+const linkPreview = document.getElementById('linkPreview');
+const previewStatus = document.getElementById('previewStatus');
+const previewData = document.getElementById('previewData');
+const previewSiteName = document.getElementById('previewSiteName');
+const previewAmount = document.getElementById('previewAmount');
 
 let stats = { total: 0, charged: 0, bypassed: 0 };
 let chargedCards = [];
@@ -142,6 +149,48 @@ function switchMode(mode, btn) {
     }
     if (tg) tg.HapticFeedback.selectionChanged();
 }
+
+// Analysis Logic
+async function analyzeLink(url) {
+    if (!url || !url.startsWith('https://checkout.stripe.com/')) {
+        linkPreview.classList.add('hidden');
+        return;
+    }
+
+    linkPreview.classList.remove('hidden');
+    previewStatus.innerText = '🔍 Analyzing Link...';
+    previewData.classList.add('hidden');
+    analyzedData = { site: null, amount: null };
+
+    try {
+        const response = await fetch('/analyze-link', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url })
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            analyzedData = data;
+            
+            previewStatus.innerText = '✅ Link Analysis Complete';
+            previewSiteName.innerText = data.site;
+            previewAmount.innerText = data.amount;
+            previewData.classList.remove('hidden');
+        } else {
+            previewStatus.innerText = '❌ Analysis Failed (Invalid Link)';
+        }
+    } catch (err) {
+        previewStatus.innerText = '⚠️ Network Error during analysis';
+    }
+}
+
+targetUrlInput.addEventListener('input', (e) => {
+    const url = e.target.value.trim();
+    // Debounce analysis a bit
+    clearTimeout(targetUrlInput.timeout);
+    targetUrlInput.timeout = setTimeout(() => analyzeLink(url), 500);
+});
 
 // BIN Generation Logic
 function generateLuhnCheckDigit(number) {
@@ -320,8 +369,8 @@ function updateStatsUI() {
 
 function showSuccessCard(card, res, count, total) {
     successCard.classList.remove('hidden');
-    document.getElementById('successAmount').innerText = res.amount || 'Unknown';
-    document.getElementById('successSite').innerText = res.site || 'Stripe Checkout';
+    document.getElementById('successAmount').innerText = res.amount || analyzedData.amount || 'Unknown';
+    document.getElementById('successSite').innerText = res.site || analyzedData.site || 'Stripe Checkout';
     document.getElementById('successCardNum').innerText = maskCard(card);
     document.getElementById('successAttempts').innerText = `${count} / ${total}`;
 }

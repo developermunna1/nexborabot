@@ -89,6 +89,23 @@
             <div class="input-group">
                 <input type="text" id="targetUrl" placeholder="https://checkout.stripe.com/..." class="main-input">
             </div>
+            
+            <!-- Link Preview Box -->
+            <div id="linkPreview" class="link-preview hidden">
+                <div class="preview-header">
+                    <span id="previewStatus">🔍 Analyzing Link...</span>
+                </div>
+                <div id="previewData" class="preview-data hidden">
+                    <div class="preview-item">
+                        <i class="fas fa-building"></i>
+                        <span id="previewSiteName">Loading...</span>
+                    </div>
+                    <div class="preview-item highlight">
+                        <i class="fas fa-dollar-sign"></i>
+                        <span id="previewAmount">0.00</span>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Mode Toggle (Cards vs BIN) -->

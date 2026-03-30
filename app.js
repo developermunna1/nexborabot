@@ -55,6 +55,21 @@ async function checkAuth() {
             document.getElementById('loginOverlay').classList.add('hidden');
             document.getElementById('app').classList.remove('blur');
             updateUIWithPlan();
+
+            // Sync Telegram Profile in Tool Page
+            if (tg?.initDataUnsafe?.user) {
+                const user = tg.initDataUnsafe.user;
+                const fullName = (user.first_name + ' ' + (user.last_name || '')).trim();
+                document.getElementById('userName').innerText = fullName;
+                document.getElementById('userChatIdDisplay').innerText = `ID: ${user.id}`;
+                
+                const picDiv = document.getElementById('userPic');
+                if (user.photo_url) {
+                    picDiv.innerHTML = `<img src="${user.photo_url}" style="width:100%;height:100%;border-radius:50%">`;
+                } else {
+                    picDiv.innerText = user.first_name.charAt(0).toUpperCase();
+                }
+            }
         } catch (e) {
             console.error('Auth sync failed', e);
         }
@@ -64,9 +79,15 @@ window.onload = checkAuth;
 
 function updateUIWithPlan() {
     const statusText = document.getElementById('planStatusText');
+    const badgeText = document.getElementById('headerPlanBadge');
+    
     if (statusText) {
         statusText.innerText = `Plan: ${userPlan.toUpperCase()} | Hits Left: ${remainingHits}`;
     }
+    if (badgeText) {
+        badgeText.innerText = userPlan.toUpperCase();
+    }
+    
     // Update hit button if limit reached
     if (userPlan === 'free' && remainingHits <= 0) {
         document.getElementById('hitBtnText').innerText = 'Limit Reached - Upgrade';

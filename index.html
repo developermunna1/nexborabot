@@ -11,7 +11,7 @@
     <style>
         .home-container { padding: 20px; max-width: 500px; margin: 0 auto; color: white; }
         .hero { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); padding: 30px; border-radius: 20px; text-align: center; margin-bottom: 25px; border: 1px solid #1e293b; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
-        .hero h1 { font-size: 32px; font-weight: 800; margin-bottom: 10px; background: linear-gradient(to right, #3b82f6, #60a5fa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .hero h1 { font-size: 32px; font-weight: 800; margin-bottom: 10px; background: linear-gradient(to right, #3b82f6, #60a5fa); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
         .hero p { color: #888; font-size: 15px; margin-bottom: 20px; }
         .launch-btn { background: #3b82f6; color: white; font-weight: 700; font-size: 18px; padding: 15px 30px; border-radius: 12px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4); margin-bottom: 15px; }
         .grid-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
@@ -31,7 +31,7 @@
     </style>
 </head>
 <body>
-    <!-- Login Overlay (Same as before) -->
+    <!-- Login Overlay -->
     <div id="loginOverlay" class="login-overlay">
         <div class="login-modal">
             <div class="login-header">
@@ -51,6 +51,16 @@
     </div>
 
     <div id="app" class="home-container blur">
+        <!-- Profile Section -->
+        <div class="profile-bar">
+            <div id="userPic" class="profile-pic">?</div>
+            <div class="profile-info">
+                <span id="userName" class="profile-name">Guest User</span>
+                <span id="userChatIdDisplay" class="profile-id">ID: 000000000</span>
+            </div>
+            <div class="plan-tag" id="profilePlanBadge">FREE</div>
+        </div>
+
         <div class="hero">
             <h1>Premium Hitter</h1>
             <p>The smarter way to process Stripe Checkouts</p>
@@ -94,11 +104,26 @@
     </div>
 
     <script>
-        const tg = window.Telegram.WebApp;
+        const tg = window.Telegram?.WebApp;
         let currentChatId = localStorage.getItem('userChatId');
 
         async function initHome() {
             if (localStorage.getItem('isLoggedIn') !== 'true') return;
+
+            // Load Telegram Profile Info
+            if (tg?.initDataUnsafe?.user) {
+                const user = tg.initDataUnsafe.user;
+                const fullName = (user.first_name + ' ' + (user.last_name || '')).trim();
+                document.getElementById('userName').innerText = fullName;
+                document.getElementById('userChatIdDisplay').innerText = `ID: ${user.id}`;
+                
+                const picDiv = document.getElementById('userPic');
+                if (user.photo_url) {
+                    picDiv.innerHTML = `<img src="${user.photo_url}" style="width:100%;height:100%;border-radius:50%">`;
+                } else {
+                    picDiv.innerText = user.first_name.charAt(0).toUpperCase();
+                }
+            }
 
             const startParam = tg?.initDataUnsafe?.start_param || null;
             
@@ -108,12 +133,13 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
                         chatId: currentChatId,
-                        referrerId: startParam // Pass the referrer if user is opening via link
+                        referrerId: startParam 
                     })
                 });
                 const data = await res.json();
                 
                 document.getElementById('homePlan').innerText = data.plan.toUpperCase();
+                document.getElementById('profilePlanBadge').innerText = data.plan.toUpperCase();
                 document.getElementById('homeHits').innerText = data.maxHits === 'Unlimited' ? 'Unlimited' : (data.maxHits - data.hitsToday);
                 
                 const refCount = data.referralCount || 0;
@@ -127,7 +153,7 @@
             }
         }
 
-        // --- AUTH LOGIC (Minimized Copy from app.js) ---
+        // --- AUTH LOGIC ---
         document.getElementById('sendOtpBtn').onclick = async () => {
             const chatId = document.getElementById('loginChatId').value;
             const res = await fetch('/send-otp', {

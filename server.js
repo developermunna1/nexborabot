@@ -139,7 +139,7 @@ async function scrapeStripeInfo(url) {
     }
 }
 
-// Link Analysis Endpoint
+// Link Analysis Endpoint (Primary: User's API | Fallback: Native Scraper)
 app.post('/analyze-link', async (req, res) => {
     let { url } = req.body;
     if (!url) return res.status(400).json({ error: 'URL required' });
@@ -157,22 +157,51 @@ app.post('/analyze-link', async (req, res) => {
         return res.status(400).json({ error: 'Invalid Stripe or Billing URL' });
     }
 
-    console.log(`[Link Analysis] Fetching: ${url}`);
+    const EXTRACT_API = 'https://nonburnable-undolorously-sheilah.ngrok-free.dev/api/extract';
+    console.log(`[Link Analysis] Processing: ${url}`);
 
     try {
+        // 1. ATTEMPT EXTERNAL API (User's Primary Choice)
+        console.log(`[Link Analysis] Trying External API...`);
+        const apiResponse = await axios.post(EXTRACT_API, { url }, { 
+            headers: { 
+                'Content-Type': 'application/json',
+                'ngrok-skip-browser-warning': 'true' 
+            },
+            timeout: 15000 
+        }).catch(err => {
+            console.warn(`[Link Analysis] External API Failed: ${err.message}`);
+            return null; // Handle failure gracefully
+        });
+
+        if (apiResponse && apiResponse.data) {
+            const data = apiResponse.data;
+            console.log(`[Link Analysis] Success from API:`, JSON.stringify(data));
+            
+            let site = data.name || data.merchant || 'Stripe Checkout';
+            let amount = data.price || data.amount || 'Unknown';
+            
+            // Clean up
+            if (site.includes('Pay ')) site = site.replace('Pay ', '');
+            if (site.includes(' | Stripe')) site = site.split(' | Stripe')[0];
+            
+            // Cleanup escaped characters like \n or \\n
+            site = site.replace(/\\n/g, ' ').replace(/\n/g, ' ').replace(/\\/g, '').trim();
+            
+            return res.json({ site, amount });
+        }
+
+        // 2. FALLBACK TO NATIVE SCRAPER (If API is offline/failed)
+        console.log(`[Link Analysis] Falling back to Native Scraper...`);
         const result = await scrapeStripeInfo(url);
-        
-        // Final sanity check for display
-        if (result.site.includes('Pay ')) result.site = result.site.replace('Pay ', '');
-        if (result.site.includes(' | Stripe')) result.site = result.site.split(' | Stripe')[0];
-        
         res.json(result);
+
     } catch (err) {
-        console.error('Analysis failed:', err.message);
+        console.error('[Link Analysis Error]:', err.message);
         res.status(500).json({ 
             error: 'Analysis Error', 
             details: err.message,
-            site: 'Stripe Checkout',
+            site: 'Stripe Page',
             amount: 'Unknown' 
         });
     }

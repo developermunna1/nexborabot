@@ -174,7 +174,8 @@ app.post('/hit-proxy/:gate', async (req, res) => {
   }
 
   try {
-    const API_KEY = 'hitchk_c321efa228654c3433cf37b8d6aa38b42e83ded5325d504f';
+    // UPDATED API KEY from your app.js
+    const API_KEY = 'hitchk_e03920c069910b8939f63f77897e1f0ff463f60f8b623f06';
     const API_URL = 'https://hitter1month.replit.app';
 
     const response = await axios.post(`${API_URL}/hit/${gate}`, {
@@ -185,14 +186,23 @@ app.post('/hit-proxy/:gate', async (req, res) => {
         timeout: 120000
     });
 
-    // Update Hit Count if request was processed
-    user.hits_today++;
-    writeDB(db);
+    const result = response.data;
+    const status = (result.status || '').toLowerCase();
+
+    // ONLY update Hit Count if the card was successfully CHARGED or APPROVED
+    if (status === 'charged' || status === 'approved') {
+        user.hits_today++;
+        writeDB(db);
+        console.log(`[Limit] Hit successful for ${chatId}. Hits today: ${user.hits_today}`);
+    } else {
+        console.log(`[Limit] Hit declined for ${chatId}. Limit not deducted.`);
+    }
 
     res.json({
-      ...response.data,
+      ...result,
       remainingHits: user.plan === 'free' ? (2 - user.hits_today) : 'Unlimited'
     });
+
   } catch (err) {
     console.error('Hit Failed:', err.message);
     res.status(500).json({ error: 'System Error', message: err.message });

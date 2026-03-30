@@ -32,46 +32,48 @@ app.post('/analyze-link', async (req, res) => {
 
     const html = response.data.toString();
     
-    // Deep Scanning for Site Name
-    let siteName = 'Stripe Checkout';
+    // Stage 1: Specific JSON Pattern Search
     const nameRegexes = [
       /\\"account_name\\":\\"([^\\"]+)\\"/,
       /\\"merchantName\\":\\"([^\\"]+)\\"/,
       /\\"business_name\\":\\"([^\\"]+)\\"/,
       /"account_name":"([^"]+)"/,
       /"merchant_name":"([^"]+)"/,
-      /"business_name":"([^"]+)"/,
-      /<title>([^<]+)<\/title>/
+      /"business_name":"([^"]+)"/
     ];
 
     for (const reg of nameRegexes) {
       const match = html.match(reg);
       if (match && match[1]) {
-        siteName = match[1].replace(/\\u0026/g, '&').replace(' - Stripe Checkout', '').replace('Stripe Checkout - ', '').trim();
+        siteName = match[1].replace(/\\u0026/g, '&').replace(' - Stripe Checkout', '').trim();
         break;
       }
     }
 
-    // Deep Scanning for Amount and Currency
+    // Stage 2: Broad Title Search (Fallback)
+    if (siteName === 'Stripe Checkout') {
+      const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
+      if (titleMatch) {
+         siteName = titleMatch[1].replace(' - Stripe Checkout', '').replace('Stripe Checkout - ', '').trim();
+      }
+    }
+
+    // Amount and Currency Scanning
     let amountStr = 'Unknown';
-    const amountRegexes = [
+    let foundAmount = null;
+    let foundCurrency = 'USD';
+
+    // Try to find specifically structured price data first
+    const priceRegexes = [
       /\\"total\\":(\d+)/,
       /\\"amount_total\\":(\d+)/,
       /\\"unit_amount\\":(\d+)/,
       /\\"amount\\":(\d+)/,
       /"total":(\d+)/,
-      /"amount_total":(\d+)/,
-      /"amount":(\d+)/
+      /"amount_total":(\d+)/
     ];
 
-    const currencyRegexes = [
-      /\\"currency\\":\\"([^\\"]+)\\"/,
-      /\\"currency_code\\":\\"([^\\"]+)\\"/,
-      /"currency":"([^"]+)"/
-    ];
-
-    let foundAmount = null;
-    for (const reg of amountRegexes) {
+    for (const reg of priceRegexes) {
       const match = html.match(reg);
       if (match && match[1]) {
         foundAmount = match[1];
@@ -79,12 +81,26 @@ app.post('/analyze-link', async (req, res) => {
       }
     }
 
-    let foundCurrency = 'USD';
+    // Try to find currency
+    const currencyRegexes = [
+      /\\"currency\\":\\"([^\\"]+)\\"/,
+      /\\"currency_code\\":\\"([^\\"]+)\\"/,
+      /"currency":"([^"]+)"/
+    ];
+
     for (const reg of currencyRegexes) {
       const match = html.match(reg);
       if (match && match[1]) {
         foundCurrency = match[1].toUpperCase();
         break;
+      }
+    }
+
+    // Stage 3: Ultra-Broad Search for Pricing (e.g., "$20.00")
+    if (!foundAmount) {
+      const broadPriceMatch = html.match(/\$([0-9]+\.[0-9]{2})/);
+      if (broadPriceMatch) {
+        amountStr = `${broadPriceMatch[1]} USD`;
       }
     }
 

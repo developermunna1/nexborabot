@@ -192,6 +192,23 @@ targetUrlInput.addEventListener('input', (e) => {
     targetUrlInput.timeout = setTimeout(() => analyzeLink(url), 500);
 });
 
+// Manual Override Logic
+previewSiteName.parentElement.onclick = () => {
+    const newName = prompt('Enter Site Name:', previewSiteName.innerText);
+    if (newName) {
+        previewSiteName.innerText = newName;
+        analyzedData.site = newName;
+    }
+};
+
+previewAmount.parentElement.onclick = () => {
+    const newAmount = prompt('Enter Amount (e.g. 20.00 USD):', previewAmount.innerText);
+    if (newAmount) {
+        previewAmount.innerText = newAmount;
+        analyzedData.amount = newAmount;
+    }
+};
+
 // BIN Generation Logic
 function generateLuhnCheckDigit(number) {
     let sum = 0;

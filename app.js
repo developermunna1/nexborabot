@@ -234,7 +234,19 @@ function switchMode(mode, btn) {
 
 // Analysis Logic
 async function analyzeLink(url) {
-    if (!url || !url.startsWith('https://checkout.stripe.com/')) {
+    if (!url) {
+        linkPreview.classList.add('hidden');
+        return;
+    }
+
+    // Support custom domains like billing.gamma.app or any hosted Stripe path
+    const isStripeURL = url.includes('stripe.com') || 
+                       url.includes('/c/pay/') || 
+                       url.includes('/billing/') || 
+                       url.includes('/invoice/') || 
+                       url.includes('/p/session/');
+
+    if (!isStripeURL) {
         linkPreview.classList.add('hidden');
         return;
     }

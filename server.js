@@ -69,37 +69,72 @@ function checkPlanExpiry(user, db) {
   return false;
 }
 
-// Native Scraper Fallback (Permanent Fix)
+// Advanced Stripe Scraper (Maximum Reliability)
 async function scrapeStripeInfo(url) {
     try {
         const response = await axios.get(url, {
-            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36' },
-            timeout: 10000
+            headers: { 
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9'
+            },
+            timeout: 12000
         });
         const html = response.data;
 
-        // Extract Merchant/Site Name
         let site = 'Stripe Checkout';
-        const siteMatch = 
-            html.match(/"business_name":"([^"]+)"/) || 
-            html.match(/"merchant_name":"([^"]+)"/) || 
-            html.match(/<title>([^<]+)<\/title>/);
-        
-        if (siteMatch) site = siteMatch[1].replace(/\\n/g, '').replace(/\\/g, '').trim();
-
-        // Extract Amount and Currency
         let amount = 'Unknown';
-        const amountMatch = 
-            html.match(/"total_amount_display":"([^"]+)"/) || 
-            html.match(/"amount_formatted":"([^"]+)"/) ||
-            html.match(/"amount_string":"([^"]+)"/) ||
-            html.match(/<span[^>]*class="[^"]*amount[^"]*"[^>]*>([^<]+)<\/span>/);
-            
-        if (amountMatch) amount = amountMatch[1].trim();
+
+        // 1. TRY META TAGS (Most Reliable for Previews)
+        const ogTitle = html.match(/<meta[^>]*property="og:title"[^>]*content="([^"]+)"/i) ||
+                        html.match(/<meta[^>]*name="twitter:title"[^>]*content="([^"]+)"/i);
+        const ogDesc = html.match(/<meta[^>]*property="og:description"[^>]*content="([^"]+)"/i) ||
+                       html.match(/<meta[^>]*name="description"[^>]*content="([^"]+)"/i);
+
+        if (ogTitle) {
+            site = ogTitle[1].replace(/Pay /i, '').replace(/ | Stripe/i, '').trim();
+        }
+
+        if (ogDesc) {
+            // Description often looks like "Pay $10.00 to Merchant Name"
+            const amtMatch = ogDesc[1].match(/([$€£¥৳]\s?\d+([.,]\d{2})?)/) || 
+                             ogDesc[1].match(/(\d+([.,]\d{2})?\s?(?:USD|EUR|GBP|BDT|CAD|AUD))/i);
+            if (amtMatch) amount = amtMatch[1].trim();
+        }
+
+        // 2. TRY JSON-IN-HTML (window.__INITIAL_STATE__)
+        if (amount === 'Unknown' || site === 'Stripe Checkout') {
+            const jsonMatch = html.match(/window\.__INITIAL_STATE__\s*=\s*({.+?});/s);
+            if (jsonMatch) {
+                try {
+                    const state = JSON.parse(jsonMatch[1]);
+                    // Traverse through common Stripe state paths
+                    const context = state.checkout || state.payment_intent || state.invoice || {};
+                    if (context.business_name) site = context.business_name;
+                    if (context.total_amount_display) amount = context.total_amount_display;
+                    else if (context.amount_formatted) amount = context.amount_formatted;
+                } catch (e) {}
+            }
+        }
+
+        // 3. BROAD REGEX FALLBACK (Look for currency signs in body)
+        if (amount === 'Unknown') {
+            // Matches: $10.00, €5,00, £12.50, BDT 500, etc.
+            const currencyRegex = /([$€£¥৳]\s?\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2})?)/g;
+            const matches = html.match(currencyRegex);
+            if (matches && matches.length > 0) {
+                // Often the largest or first currency value is the total
+                amount = matches[0]; 
+            }
+        }
+
+        // Final cleanup for site name
+        if (site.toLowerCase().includes('stripe')) site = site.replace(/\| Stripe/gi, '').trim();
+        if (site === 'Title' || !site) site = 'Stripe Page';
 
         return { site, amount };
     } catch (err) {
-        console.error('[Scraper] Failed:', err.message);
+        console.error('[Scraper Error]:', err.message);
         return { site: 'Stripe Page', amount: 'Unknown' };
     }
 }

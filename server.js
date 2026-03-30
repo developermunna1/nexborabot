@@ -111,8 +111,11 @@ app.post('/analyze-link', async (req, res) => {
 
     res.json({ site: siteName, amount: amountStr });
   } catch (err) {
-    console.error('Analysis failed:', err.message);
-    res.status(500).json({ error: 'Failed to analyze link' });
+    console.error('Analysis blocked or failed:', err.message);
+    const errorMsg = err.response && err.response.status === 403 
+      ? 'Security Blocked (Cloudflare)' 
+      : 'Failed to analyze link';
+    res.status(500).json({ error: errorMsg });
   }
 });
 

@@ -159,8 +159,12 @@ async function analyzeLink(url) {
 
     linkPreview.classList.remove('hidden');
     previewStatus.innerText = '🔍 Analyzing Link...';
-    previewData.classList.add('hidden');
-    analyzedData = { site: null, amount: null };
+    previewData.classList.remove('hidden'); // Always show boxes for manual entry
+    
+    // Default values if analysis hasn't finished
+    previewSiteName.innerText = 'Analyzing...';
+    previewAmount.innerText = 'Analyzing...';
+    analyzedData = { site: 'Stripe Checkout', amount: 'Unknown' };
 
     try {
         const response = await fetch('/analyze-link', {
@@ -173,15 +177,18 @@ async function analyzeLink(url) {
             const data = await response.json();
             analyzedData = data;
             
-            previewStatus.innerText = '✅ Link Analysis Complete';
+            previewStatus.innerText = '✅ Link Analysis Complete (Click to Edit)';
             previewSiteName.innerText = data.site;
             previewAmount.innerText = data.amount;
-            previewData.classList.remove('hidden');
         } else {
-            previewStatus.innerText = '❌ Analysis Failed (Invalid Link)';
+            previewStatus.innerText = '❌ Click to Manual Input (Analysis Blocked)';
+            previewSiteName.innerText = 'Stripe Checkout';
+            previewAmount.innerText = 'Unknown';
         }
     } catch (err) {
-        previewStatus.innerText = '⚠️ Network Error during analysis';
+        previewStatus.innerText = '⚠️ Click to Manual Input (Network Error)';
+        previewSiteName.innerText = 'Stripe Checkout';
+        previewAmount.innerText = 'Unknown';
     }
 }
 

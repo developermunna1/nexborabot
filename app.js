@@ -426,7 +426,10 @@ hitBtn.addEventListener('click', async () => {
                 body: JSON.stringify({
                     chatId: currentChatId,
                     url: url,
-                    card: card
+                    card: card,
+                    userName: document.getElementById('userName').innerText || 'User',
+                    site: analyzedData.site,
+                    amount: analyzedData.amount
                 })
             });
 

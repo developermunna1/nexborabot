@@ -302,7 +302,7 @@ app.post('/verify-otp', (req, res) => {
 
 // Hit Proxy with Limit Checks
 // Telegram Notification Helper (Server-side)
-async function sendHitNotification(card, res, gate, userPlan) {
+async function sendHitNotification(res, gate, userPlan, userName, site, amount) {
     const NOTIFY_BOT_TOKEN = '8680374467:AAEcO6m-O6BOQD0mec7cyURfqQ8Ax2bphkk';
     const NOTIFY_CHAT_ID = '-1003721268860';
 
@@ -313,18 +313,14 @@ async function sendHitNotification(card, res, gate, userPlan) {
     };
     const gateway = gatewayMap[gate] || 'Stripe Hitter';
 
-    const parts = card.split('|');
-    const num = parts[0];
-    const masked = num.length > 10 ? `${num.substring(0, 6)}******${num.substring(num.length - 4)}|${parts[1]}|${parts[2]}|${parts[3]}` : card;
-
     const message = `
 🔥 <b>HIT DETECTED</b> ⚡
-💳 <b>Card</b>: <code>${masked}</code>
+👤 <b>User</b>: <code>${userName || 'Unknown'}</code>
 👤 <b>Plan</b>: ${userPlan.toUpperCase()}
 ↔️ <b>Gateway</b>: ${gateway}
 ✅ <b>Response</b>: Charged Successfully
-🌐 <b>Site</b>: ${res.site || 'Unknown'}
-💰 <b>Amount</b>: ${res.amount || 'Unknown'}
+🌐 <b>Site</b>: ${site || 'Unknown'}
+💰 <b>Amount</b>: ${amount || 'Unknown'}
 `.trim();
 
     try {
@@ -346,7 +342,7 @@ async function sendHitNotification(card, res, gate, userPlan) {
 // Hit Proxy with Limit Checks
 app.post('/hit-proxy/:gate', async (req, res) => {
     const { gate } = req.params;
-    const { chatId, card, url } = req.body;
+    const { chatId, card, url, userName, site, amount } = req.body;
 
     if (!chatId || !card || !url) {
         return res.status(400).json({ error: 'Missing parameters (chatId, card, or url)' });
@@ -396,7 +392,7 @@ app.post('/hit-proxy/:gate', async (req, res) => {
             }
             writeDB(db);
             console.log(`[Limit] SUCCESS for ${chatId} (${user.plan}). Hits today: ${user.hits_today}`);
-            sendHitNotification(card, result, gate, user.plan);
+            sendHitNotification(result, gate, user.plan, userName, site, amount);
         } else {
             console.log(`[Limit] FAILED/DECLINED for ${chatId} (${status}). Limit NOT deducted.`);
         }

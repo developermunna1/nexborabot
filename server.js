@@ -125,7 +125,6 @@ app.post('/analyze-link', async (req, res) => {
         });
     }
 });
-});
 
 
 // --- USER & HIT MANAGEMENT ---

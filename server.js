@@ -17,29 +17,43 @@ app.post('/analyze-link', async (req, res) => {
     return res.status(400).json({ error: 'Invalid Stripe URL' });
   }
 
-  // Strip fragment and trailing whitespace
   url = url.split('#')[0].trim();
 
-  try {
-    const response = await axios.get(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9'
-      },
-      timeout: 10000
+  // Stealth headers to mimic a real mobile browser
+  const getHeaders = () => ({
+    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'Connection': 'keep-alive',
+    'Upgrade-Insecure-Requests': '1',
+    'Sec-Fetch-Dest': 'document',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-Site': 'none',
+    'Sec-Fetch-User': '?1'
+  });
+
+  const performScrape = async (targetUrl) => {
+    const response = await axios.get(targetUrl, {
+      headers: getHeaders(),
+      timeout: 8000,
+      validateStatus: false
     });
 
+    if (response.status !== 200) throw new Error(`Status ${response.status}`);
     const html = response.data.toString();
     
-    // Stage 1: Specific JSON Pattern Search
+    let siteName = null;
+    let amountStr = null;
+
+    // Site Name Patterns
     const nameRegexes = [
       /\\"account_name\\":\\"([^\\"]+)\\"/,
       /\\"merchantName\\":\\"([^\\"]+)\\"/,
       /\\"business_name\\":\\"([^\\"]+)\\"/,
       /"account_name":"([^"]+)"/,
       /"merchant_name":"([^"]+)"/,
-      /"business_name":"([^"]+)"/
+      /<title>([^<]+)<\/title>/
     ];
 
     for (const reg of nameRegexes) {
@@ -50,72 +64,53 @@ app.post('/analyze-link', async (req, res) => {
       }
     }
 
-    // Stage 2: Broad Title Search (Fallback)
-    if (siteName === 'Stripe Checkout') {
-      const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
-      if (titleMatch) {
-         siteName = titleMatch[1].replace(' - Stripe Checkout', '').replace('Stripe Checkout - ', '').trim();
-      }
-    }
-
-    // Amount and Currency Scanning
-    let amountStr = 'Unknown';
+    // Amount Patterns
     let foundAmount = null;
     let foundCurrency = 'USD';
-
-    // Try to find specifically structured price data first
     const priceRegexes = [
-      /\\"total\\":(\d+)/,
-      /\\"amount_total\\":(\d+)/,
-      /\\"unit_amount\\":(\d+)/,
-      /\\"amount\\":(\d+)/,
-      /"total":(\d+)/,
-      /"amount_total":(\d+)/
+      /\\"total\\":(\d+)/, /\\"amount_total\\":(\d+)/, /\\"unit_amount\\":(\d+)/,
+      /"total":(\d+)/, /"amount_total":(\d+)/, /"amount":(\d+)/
     ];
 
     for (const reg of priceRegexes) {
       const match = html.match(reg);
-      if (match && match[1]) {
-        foundAmount = match[1];
-        break;
-      }
+      if (match && match[1]) { foundAmount = match[1]; break; }
     }
 
-    // Try to find currency
-    const currencyRegexes = [
-      /\\"currency\\":\\"([^\\"]+)\\"/,
-      /\\"currency_code\\":\\"([^\\"]+)\\"/,
-      /"currency":"([^"]+)"/
-    ];
-
-    for (const reg of currencyRegexes) {
+    const currRegexes = [/\\"currency\\":\\"([^\\"]+)\\"/, /"currency":"([^"]+)"/];
+    for (const reg of currRegexes) {
       const match = html.match(reg);
-      if (match && match[1]) {
-        foundCurrency = match[1].toUpperCase();
-        break;
-      }
-    }
-
-    // Stage 3: Ultra-Broad Search for Pricing (e.g., "$20.00")
-    if (!foundAmount) {
-      const broadPriceMatch = html.match(/\$([0-9]+\.[0-9]{2})/);
-      if (broadPriceMatch) {
-        amountStr = `${broadPriceMatch[1]} USD`;
-      }
+      if (match && match[1]) { foundCurrency = match[1].toUpperCase(); break; }
     }
 
     if (foundAmount) {
-      const value = (parseInt(foundAmount) / 100).toFixed(2);
-      amountStr = `${value} ${foundCurrency}`;
+      amountStr = `${(parseInt(foundAmount) / 100).toFixed(2)} ${foundCurrency}`;
+    } else {
+      const broadMatch = html.match(/\$([0-9]+\.[0-9]{2})/);
+      if (broadMatch) amountStr = `${broadMatch[1]} USD`;
     }
 
-    res.json({ site: siteName, amount: amountStr });
+    return { site: siteName || 'Stripe Checkout', amount: amountStr || 'Unknown' };
+  };
+
+  try {
+    // Try primary scrape
+    let result = await performScrape(url);
+    
+    // If we only got partial data, try one more time after a tiny delay
+    if (result.amount === 'Unknown' || result.site === 'Stripe Checkout') {
+      await new Promise(r => setTimeout(r, 1000));
+      const retryResult = await performScrape(url);
+      result = {
+        site: retryResult.site !== 'Stripe Checkout' ? retryResult.site : result.site,
+        amount: retryResult.amount !== 'Unknown' ? retryResult.amount : result.amount
+      };
+    }
+
+    res.json(result);
   } catch (err) {
-    console.error('Analysis blocked or failed:', err.message);
-    const errorMsg = err.response && err.response.status === 403 
-      ? 'Security Blocked (Cloudflare)' 
-      : 'Failed to analyze link';
-    res.status(500).json({ error: errorMsg });
+    console.error('Analysis failed:', err.message);
+    res.status(500).json({ error: 'Blocked by Security' });
   }
 });
 

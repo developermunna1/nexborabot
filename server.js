@@ -12,15 +12,20 @@ app.use(express.json());
 
 // Link Analysis Endpoint
 app.post('/analyze-link', async (req, res) => {
-  const { url } = req.body;
+  let { url } = req.body;
   if (!url || !url.includes('stripe.com')) {
     return res.status(400).json({ error: 'Invalid Stripe URL' });
   }
 
+  // Strip fragment and trailing whitespace
+  url = url.split('#')[0].trim();
+
   try {
     const response = await axios.get(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9'
       },
       timeout: 10000
     });
@@ -34,14 +39,15 @@ app.post('/analyze-link', async (req, res) => {
       /\\"merchantName\\":\\"([^\\"]+)\\"/,
       /\\"business_name\\":\\"([^\\"]+)\\"/,
       /"account_name":"([^"]+)"/,
-      /"merchantName":"([^"]+)"/,
+      /"merchant_name":"([^"]+)"/,
+      /"business_name":"([^"]+)"/,
       /<title>([^<]+)<\/title>/
     ];
 
     for (const reg of nameRegexes) {
       const match = html.match(reg);
       if (match && match[1]) {
-        siteName = match[1].replace(/\\u0026/g, '&').replace(' - Stripe Checkout', '').trim();
+        siteName = match[1].replace(/\\u0026/g, '&').replace(' - Stripe Checkout', '').replace('Stripe Checkout - ', '').trim();
         break;
       }
     }
@@ -52,7 +58,9 @@ app.post('/analyze-link', async (req, res) => {
       /\\"total\\":(\d+)/,
       /\\"amount_total\\":(\d+)/,
       /\\"unit_amount\\":(\d+)/,
+      /\\"amount\\":(\d+)/,
       /"total":(\d+)/,
+      /"amount_total":(\d+)/,
       /"amount":(\d+)/
     ];
 

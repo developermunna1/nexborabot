@@ -10,109 +10,57 @@ const axios = require('axios');
 app.use(express.static(__dirname));
 app.use(express.json());
 
-// Link Analysis Endpoint
+// Link Analysis Endpoint (Updated to use User's Local Extraction API)
 app.post('/analyze-link', async (req, res) => {
   let { url } = req.body;
   if (!url || !url.includes('stripe.com')) {
     return res.status(400).json({ error: 'Invalid Stripe URL' });
   }
 
+  // Clean-up URL
   url = url.split('#')[0].trim();
 
-  // Stealth headers to mimic a real mobile browser
-  const getHeaders = () => ({
-    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-    'Accept-Language': 'en-US,en;q=0.9',
-    'Accept-Encoding': 'gzip, deflate, br',
-    'Connection': 'keep-alive',
-    'Upgrade-Insecure-Requests': '1',
-    'Sec-Fetch-Dest': 'document',
-    'Sec-Fetch-Mode': 'navigate',
-    'Sec-Fetch-Site': 'none',
-    'Sec-Fetch-User': '?1'
-  });
-
-  const performScrape = async (targetUrl) => {
-    const response = await axios.get(targetUrl, {
-      headers: getHeaders(),
-      timeout: 8000,
-      validateStatus: false
-    });
-
-    if (response.status !== 200) throw new Error(`Status ${response.status}`);
-    const html = response.data.toString();
-    
-    let siteName = null;
-    let amountStr = null;
-
-    // Site Name Patterns
-    const nameRegexes = [
-      /\\"account_name\\":\\"([^\\"]+)\\"/,
-      /\\"merchantName\\":\\"([^\\"]+)\\"/,
-      /\\"business_name\\":\\"([^\\"]+)\\"/,
-      /"account_name":"([^"]+)"/,
-      /"merchant_name":"([^"]+)"/,
-      /<title>([^<]+)<\/title>/
-    ];
-
-    for (const reg of nameRegexes) {
-      const match = html.match(reg);
-      if (match && match[1]) {
-        siteName = match[1].replace(/\\u0026/g, '&').replace(' - Stripe Checkout', '').trim();
-        break;
-      }
-    }
-
-    // Amount Patterns
-    let foundAmount = null;
-    let foundCurrency = 'USD';
-    const priceRegexes = [
-      /\\"total\\":(\d+)/, /\\"amount_total\\":(\d+)/, /\\"unit_amount\\":(\d+)/,
-      /"total":(\d+)/, /"amount_total":(\d+)/, /"amount":(\d+)/
-    ];
-
-    for (const reg of priceRegexes) {
-      const match = html.match(reg);
-      if (match && match[1]) { foundAmount = match[1]; break; }
-    }
-
-    const currRegexes = [/\\"currency\\":\\"([^\\"]+)\\"/, /"currency":"([^"]+)"/];
-    for (const reg of currRegexes) {
-      const match = html.match(reg);
-      if (match && match[1]) { foundCurrency = match[1].toUpperCase(); break; }
-    }
-
-    if (foundAmount) {
-      amountStr = `${(parseInt(foundAmount) / 100).toFixed(2)} ${foundCurrency}`;
-    } else {
-      const broadMatch = html.match(/\$([0-9]+\.[0-9]{2})/);
-      if (broadMatch) amountStr = `${broadMatch[1]} USD`;
-    }
-
-    return { site: siteName || 'Stripe Checkout', amount: amountStr || 'Unknown' };
-  };
+  const apiUrl = 'https://nonburnable-undolorously-sheilah.ngrok-free.dev/api/extract';
 
   try {
-    // Try primary scrape
-    let result = await performScrape(url);
+    console.log(`[Link Analysis] Fetching: ${url}`);
     
-    // If we only got partial data, try one more time after a tiny delay
-    if (result.amount === 'Unknown' || result.site === 'Stripe Checkout') {
-      await new Promise(r => setTimeout(r, 1000));
-      const retryResult = await performScrape(url);
-      result = {
-        site: retryResult.site !== 'Stripe Checkout' ? retryResult.site : result.site,
-        amount: retryResult.amount !== 'Unknown' ? retryResult.amount : result.amount
-      };
+    const response = await axios.post(apiUrl, {
+        url: url
+    }, {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 15000 // Extended timeout for scraping
+    });
+
+    const data = response.data;
+    console.log('[Link Analysis] Response:', data);
+
+    // Dynamic extraction based on user's API response structure
+    // Handling common keys like 'name', 'dollar', 'amount', 'merchant'
+    const siteName = data.name || data.merchant || data.business_name || data.site || 'Stripe Checkout';
+    let amountStr = data.dollar || data.amount || data.price || 'Unknown';
+
+    // Format amount if it's just a number
+    if (typeof amountStr === 'number' || (!isNaN(amountStr) && !amountStr.toString().includes(' '))) {
+        amountStr = `${amountStr} USD`;
     }
 
-    res.json(result);
+    res.json({ 
+        site: siteName, 
+        amount: amountStr 
+    });
+
   } catch (err) {
     console.error('Analysis failed:', err.message);
-    res.status(500).json({ error: 'Blocked by Security' });
+    
+    // Fallback message to prevent app from breaking
+    res.status(500).json({ 
+        error: 'Extraction service unavailable',
+        details: err.message
+    });
   }
 });
+
 
 // Ping endpoint
 app.get('/ping', (req, res) => {

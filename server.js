@@ -27,38 +27,65 @@ app.post('/analyze-link', async (req, res) => {
 
     const html = response.data.toString();
     
-    // Extract Business Name
+    // Deep Scanning for Site Name
     let siteName = 'Stripe Checkout';
-    const sitePatterns = [
+    const nameRegexes = [
+      /\\"account_name\\":\\"([^\\"]+)\\"/,
+      /\\"merchantName\\":\\"([^\\"]+)\\"/,
+      /\\"business_name\\":\\"([^\\"]+)\\"/,
       /"account_name":"([^"]+)"/,
       /"merchantName":"([^"]+)"/,
-      /"business_name":"([^"]+)"/,
       /<title>([^<]+)<\/title>/
     ];
 
-    for (const pattern of sitePatterns) {
-      const match = html.match(pattern);
+    for (const reg of nameRegexes) {
+      const match = html.match(reg);
       if (match && match[1]) {
-        siteName = match[1].replace(' - Stripe Checkout', '').replace('Stripe Checkout - ', '').trim();
+        siteName = match[1].replace(/\\u0026/g, '&').replace(' - Stripe Checkout', '').trim();
         break;
       }
     }
 
-    // Extract Amount and Currency
-    let amount = 'Unknown';
-    const amountMatch = html.match(/"total":(\d+)/) || html.match(/"amount":(\d+)/) || html.match(/"amount_total":(\d+)/) || html.match(/"unit_amount":(\d+)/);
-    const currencyMatch = html.match(/"currency":"([^"]+)"/) || html.match(/"currency_code":"([^"]+)"/);
-    
-    if (amountMatch && currencyMatch) {
-      const value = (parseInt(amountMatch[1]) / 100).toFixed(2);
-      amount = `${value} ${currencyMatch[1].toUpperCase()}`;
-    } else if (amountMatch) {
-      // Fallback if currency is missing
-      const value = (parseInt(amountMatch[1]) / 100).toFixed(2);
-      amount = `${value} USD`; // Common default
+    // Deep Scanning for Amount and Currency
+    let amountStr = 'Unknown';
+    const amountRegexes = [
+      /\\"total\\":(\d+)/,
+      /\\"amount_total\\":(\d+)/,
+      /\\"unit_amount\\":(\d+)/,
+      /"total":(\d+)/,
+      /"amount":(\d+)/
+    ];
+
+    const currencyRegexes = [
+      /\\"currency\\":\\"([^\\"]+)\\"/,
+      /\\"currency_code\\":\\"([^\\"]+)\\"/,
+      /"currency":"([^"]+)"/
+    ];
+
+    let foundAmount = null;
+    for (const reg of amountRegexes) {
+      const match = html.match(reg);
+      if (match && match[1]) {
+        foundAmount = match[1];
+        break;
+      }
     }
 
-    res.json({ site: siteName, amount: amount });
+    let foundCurrency = 'USD';
+    for (const reg of currencyRegexes) {
+      const match = html.match(reg);
+      if (match && match[1]) {
+        foundCurrency = match[1].toUpperCase();
+        break;
+      }
+    }
+
+    if (foundAmount) {
+      const value = (parseInt(foundAmount) / 100).toFixed(2);
+      amountStr = `${value} ${foundCurrency}`;
+    }
+
+    res.json({ site: siteName, amount: amountStr });
   } catch (err) {
     console.error('Analysis failed:', err.message);
     res.status(500).json({ error: 'Failed to analyze link' });

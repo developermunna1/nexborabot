@@ -56,11 +56,13 @@ function checkDailyReset(user) {
 // --- DATABASE & OTP LOGIC ---
 const otpStore = new Map(); // chatId -> { otp, expires }
 
-function checkPlanExpiry(user) {
+function checkPlanExpiry(user, db) {
   if (user.plan !== 'free' && user.expiry) {
     if (new Date() > new Date(user.expiry)) {
+      console.log(`[Expiry] Plan expired for user. Resetting to FREE.`);
       user.plan = 'free';
       user.expiry = null;
+      if (db) writeDB(db); // Persist change immediately
       return true;
     }
   }
@@ -164,7 +166,7 @@ app.post('/get-user-info', (req, res) => {
   }
 
   checkDailyReset(user);
-  checkPlanExpiry(user);
+  checkPlanExpiry(user, db);
   writeDB(db);
 
   res.json({
@@ -271,7 +273,7 @@ app.post('/hit-proxy/:gate', async (req, res) => {
     }
 
     checkDailyReset(user);
-    checkPlanExpiry(user);
+    if (user.plan !== 'free') checkPlanExpiry(user, db);
 
     // Enforce Limit for Free Plan
     if (user.plan === 'free' && user.hits_today >= 2) {

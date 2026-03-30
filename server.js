@@ -152,13 +152,13 @@ app.post('/get-user-info', (req, res) => {
       referrer.referralCount = (referrer.referralCount || 0) + 1;
       console.log(`[Referral] User ${chatId} referred by ${referrerId}. New count: ${referrer.referralCount}`);
       
-      // Reward: 5 Referrals = Silver Plan for 7 days
-      if (referrer.referralCount === 5) {
+      // Reward: 10 Referrals = Silver Plan for 7 days
+      if (referrer.referralCount === 10) {
         const expiry = new Date();
         expiry.setDate(expiry.getDate() + 7);
         referrer.plan = 'silver';
         referrer.expiry = expiry.toISOString();
-        console.log(`[Referral] User ${referrerId} reached 5 referrals! Upgraded to SILVER.`);
+        console.log(`[Referral] User ${referrerId} reached 10 referrals! Upgraded to SILVER.`);
       }
     }
   }

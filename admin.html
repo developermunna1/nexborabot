@@ -24,7 +24,10 @@
 </head>
 <body>
     <div class="admin-container">
-        <h1>Admin Dashboard</h1>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h1>Admin Dashboard</h1>
+            <button id="logoutBtn" class="hidden" onclick="logoutAdmin()" style="width: auto; padding: 8px 15px; background: #ef4444;">Logout</button>
+        </div>
         
         <div id="loginSection" class="admin-card">
             <h3>Admin Login</h3>
@@ -33,6 +36,18 @@
         </div>
 
         <div id="adminContent" class="hidden">
+            <!-- Stats Overview -->
+            <div class="admin-card" style="display: flex; justify-content: space-around; text-align: center;">
+                <div>
+                    <div style="font-size: 24px; font-weight: 700; color: #3b82f6;" id="statTotalUsers">0</div>
+                    <div style="font-size: 12px; color: #888;">TOTAL USERS</div>
+                </div>
+                <div>
+                    <div style="font-size: 24px; font-weight: 700; color: #10b981;" id="statPremiumUsers">0</div>
+                    <div style="font-size: 12px; color: #888;">PREMIUM USERS</div>
+                </div>
+            </div>
+
             <div class="admin-card">
                 <h3>Generate Redeem Code</h3>
                 <select id="codePlan">
@@ -63,33 +78,45 @@
 
             <div class="admin-card">
                 <h3>Registered Users</h3>
-                <button onclick="loadUsers()">Refresh Users</button>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Chat ID</th>
-                            <th>Plan</th>
-                            <th>Hits Today</th>
-                            <th>Expiry</th>
-                        </tr>
-                    </thead>
-                    <tbody id="userList">
-                        <!-- User list injected here -->
-                    </tbody>
-                </table>
+                <button onclick="loadUsers()">Refresh Users List</button>
+                <div style="overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Chat ID</th>
+                                <th>Plan</th>
+                                <th>Hits Today</th>
+                                <th>Expiry</th>
+                            </tr>
+                        </thead>
+                        <tbody id="userList">
+                            <!-- User list injected here -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
-        let password = '';
+        let password = localStorage.getItem('adminPassword') || '';
+
+        window.onload = () => {
+            if (password) {
+                document.getElementById('adminPwd').value = password;
+                fetchUsers();
+            }
+        };
 
         function loadAdmin() {
             password = document.getElementById('adminPwd').value;
             if (!password) return alert('Enter password');
-            
-            // Validate password by trying to fetch users
             fetchUsers();
+        }
+
+        function logoutAdmin() {
+            localStorage.removeItem('adminPassword');
+            location.reload();
         }
 
         async function fetchUsers() {
@@ -103,18 +130,30 @@
                 
                 if (data.error) {
                     alert('Invalid Password');
+                    localStorage.removeItem('adminPassword');
                 } else {
+                    localStorage.setItem('adminPassword', password);
                     document.getElementById('loginSection').classList.add('hidden');
                     document.getElementById('adminContent').classList.remove('hidden');
+                    document.getElementById('logoutBtn').classList.remove('hidden');
                     renderUsers(data);
                 }
-            } catch (e) { alert('Connection Error'); }
+            } catch (e) { 
+                alert('Connection Error'); 
+            }
         }
 
         function renderUsers(users) {
             const tbody = document.getElementById('userList');
             tbody.innerHTML = '';
-            for (const [id, user] of Object.entries(users)) {
+            
+            const userEntries = Object.entries(users);
+            let total = userEntries.length;
+            let premium = 0;
+
+            userEntries.forEach(([id, user]) => {
+                if (user.plan !== 'free') premium++;
+                
                 const tr = document.createElement('tr');
                 const expiry = user.expiry ? new Date(user.expiry).toLocaleDateString() : 'N/A';
                 tr.innerHTML = `
@@ -124,7 +163,10 @@
                     <td>${expiry}</td>
                 `;
                 tbody.appendChild(tr);
-            }
+            });
+
+            document.getElementById('statTotalUsers').innerText = total;
+            document.getElementById('statPremiumUsers').innerText = premium;
         }
 
         async function generateCode() {

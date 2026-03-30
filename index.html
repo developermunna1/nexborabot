@@ -91,7 +91,7 @@
             </div>
             <div class="stat-item" style="margin-top: 15px; border-top: 1px solid #2d2f39; padding-top: 15px;">
                 <span class="stat-label">REFERRAL REWARDS (Silver Goal)</span>
-                <span class="stat-value" id="homeReferralText">0 / 5</span>
+                <span class="stat-value" id="homeReferralText">0 / 10</span>
             </div>
             <div class="referral-progress">
                 <div class="progress-bar" id="homeProgressBar"></div>
@@ -143,8 +143,8 @@
                 document.getElementById('homeHits').innerText = data.maxHits === 'Unlimited' ? 'Unlimited' : (data.maxHits - data.hitsToday);
                 
                 const refCount = data.referralCount || 0;
-                document.getElementById('homeReferralText').innerText = `${refCount} / 5`;
-                document.getElementById('homeProgressBar').style.width = `${Math.min(refCount, 5) * 20}%`;
+                document.getElementById('homeReferralText').innerText = `${refCount} / 10`;
+                document.getElementById('homeProgressBar').style.width = `${Math.min(refCount, 10) * 10}%`;
 
                 document.getElementById('app').classList.remove('blur');
                 document.getElementById('loginOverlay').classList.add('hidden');

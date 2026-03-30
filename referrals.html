@@ -37,11 +37,11 @@
             <div class="reward-card">
                 <i class="fas fa-gift"></i>
                 <h2>Win Silver Plan</h2>
-                <p>Refer 5 friends and get a premium Silver Plan for 7 days absolutely FREE!</p>
+                <p>Refer 10 friends and get a premium Silver Plan for 7 days absolutely FREE!</p>
             </div>
 
             <div class="progress-section">
-                <div class="progress-count" id="countDisplay">0 / 5</div>
+                <div class="progress-count" id="countDisplay">0 / 10</div>
                 <div class="progress-label">Successful Referrals</div>
                 <div class="progress-bar-large">
                     <div class="bar-inner" id="barDisplay"></div>
@@ -77,8 +77,8 @@
                 });
                 const data = await res.json();
                 const count = data.referralCount || 0;
-                document.getElementById('countDisplay').innerText = `${count} / 5`;
-                document.getElementById('barDisplay').style.width = `${Math.min(count, 5) * 20}%`;
+                document.getElementById('countDisplay').innerText = `${count} / 10`;
+                document.getElementById('barDisplay').style.width = `${Math.min(count, 10) * 10}%`;
             } catch (e) {}
         }
 

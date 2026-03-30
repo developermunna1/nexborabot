@@ -17,8 +17,8 @@ app.post('/analyze-link', async (req, res) => {
     return res.status(400).json({ error: 'Invalid Stripe URL' });
   }
 
-  // Clean-up URL
-  url = url.split('#')[0].trim();
+  // We MUST use the full URL as requested by the user (do not split on #)
+  url = url.trim();
 
   const apiUrl = 'https://nonburnable-undolorously-sheilah.ngrok-free.dev/api/extract';
 
@@ -29,26 +29,26 @@ app.post('/analyze-link', async (req, res) => {
         url: url
     }, {
         headers: { 'Content-Type': 'application/json' },
-        timeout: 15000 // Extended timeout for scraping
+        timeout: 20000 // Extended timeout for scraping
     });
 
     const data = response.data;
-    console.log('[Link Analysis] Response:', data);
+    console.log('[Link Analysis] Response:', JSON.stringify(data));
 
-    // Dynamic extraction based on user's API response structure
-    // Handling common keys like 'name', 'dollar', 'amount', 'merchant'
-    const siteName = data.name || data.merchant || data.business_name || data.site || 'Stripe Checkout';
-    let amountStr = data.dollar || data.amount || data.price || 'Unknown';
+    // Mapping exact keys from user's API response: 'name' and 'price'
+    let siteName = data.name || data.merchant || 'Stripe Checkout';
+    let amountStr = data.price || data.amount || 'Unknown';
 
-    // Format amount if it's just a number
-    if (typeof amountStr === 'number' || (!isNaN(amountStr) && !amountStr.toString().includes(' '))) {
-        amountStr = `${amountStr} USD`;
+    // Clean up if there are escaped slashes/characters (e.g., Back\na2e.ai -> Backna2e.ai)
+    if (siteName && typeof siteName === 'string') {
+        siteName = siteName.replace(/\\n/g, '').replace(/\\/g, '').trim();
     }
 
     res.json({ 
         site: siteName, 
         amount: amountStr 
     });
+
 
   } catch (err) {
     console.error('Analysis failed:', err.message);

@@ -74,45 +74,62 @@ async function scrapeStripeInfo(url) {
     try {
         const response = await axios.get(url, {
             headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36' },
-            timeout: 15000
+            timeout: 10000
         });
         const html = response.data;
 
         // Extract Merchant/Site Name
         let site = 'Stripe Checkout';
-        const siteMatch = html.match(/"business_name":"([^"]+)"/) || html.match(/<title>([^<]+)<\/title>/);
+        const siteMatch = 
+            html.match(/"business_name":"([^"]+)"/) || 
+            html.match(/"merchant_name":"([^"]+)"/) || 
+            html.match(/<title>([^<]+)<\/title>/);
+        
         if (siteMatch) site = siteMatch[1].replace(/\\n/g, '').replace(/\\/g, '').trim();
 
         // Extract Amount and Currency
         let amount = 'Unknown';
-        const amountMatch = html.match(/"total_amount_display":"([^"]+)"/) || 
-                           html.match(/"amount_formatted":"([^"]+)"/) ||
-                           html.match(/<span[^>]*class="[^"]*amount[^"]*"[^>]*>([^<]+)<\/span>/);
+        const amountMatch = 
+            html.match(/"total_amount_display":"([^"]+)"/) || 
+            html.match(/"amount_formatted":"([^"]+)"/) ||
+            html.match(/"amount_string":"([^"]+)"/) ||
+            html.match(/<span[^>]*class="[^"]*amount[^"]*"[^>]*>([^<]+)<\/span>/);
+            
         if (amountMatch) amount = amountMatch[1].trim();
 
         return { site, amount };
     } catch (err) {
         console.error('[Scraper] Failed:', err.message);
-        return { site: 'Stripe Checkout', amount: 'Unknown' };
+        return { site: 'Stripe Page', amount: 'Unknown' };
     }
 }
 
 // Link Analysis Endpoint
 app.post('/analyze-link', async (req, res) => {
     let { url } = req.body;
-    if (!url || !url.includes('stripe.com')) {
-        return res.status(400).json({ error: 'Invalid Stripe URL' });
-    }
+    if (!url) return res.status(400).json({ error: 'URL required' });
 
     url = url.trim();
+    
+    // Support custom domains like billing.gamma.app
+    const isStripePath = url.includes('stripe.com') || 
+                        url.includes('/c/pay/') || 
+                        url.includes('/billing/') || 
+                        url.includes('/invoice/') || 
+                        url.includes('/p/session/');
+
+    if (!isStripePath) {
+        return res.status(400).json({ error: 'Invalid Stripe or Billing URL' });
+    }
+
     console.log(`[Link Analysis] Fetching: ${url}`);
 
     try {
-        // PERMANENT FIX: Using Native Scraper instead of unreliable ngrok
         const result = await scrapeStripeInfo(url);
         
         // Final sanity check for display
         if (result.site.includes('Pay ')) result.site = result.site.replace('Pay ', '');
+        if (result.site.includes(' | Stripe')) result.site = result.site.split(' | Stripe')[0];
         
         res.json(result);
     } catch (err) {

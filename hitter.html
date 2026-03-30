@@ -188,6 +188,21 @@
              <div class="empty-state">No results yet.</div>
         </div>
     </div>
+
+    <!-- Limit Reached Modal -->
+    <div id="limitModal" class="limit-modal-overlay hidden">
+        <div class="limit-card">
+            <i class="fas fa-exclamation-triangle limit-icon"></i>
+            <h2 class="limit-title">Daily Limit Reached</h2>
+            <p class="limit-msg" id="limitModalMsg">You have used your 2 free successful hits for today. Upgrade to a premium plan for unlimited access!</p>
+            <button class="upgrade-btn" onclick="window.location.href='plans.html'">
+                <i class="fas fa-crown"></i> UPGRADE NOW
+            </button>
+            <button class="close-btn-ghost" onclick="document.getElementById('limitModal').classList.add('hidden')">
+                Maybe Later
+            </button>
+        </div>
+    </div>
     
     <script src="app.js"></script>
 </body>

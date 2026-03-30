@@ -390,9 +390,12 @@ app.post('/hit-proxy/:gate', async (req, res) => {
 
         // ONLY deduct from limit if strictly 'charged' or 'approved'
         if (status === 'charged' || status === 'approved') {
-            user.hits_today++;
+            // ONLY increment hits for FREE users. Premium users stay at 0.
+            if (user.plan === 'free') {
+                user.hits_today++;
+            }
             writeDB(db);
-            console.log(`[Limit] SUCCESS for ${chatId}. Hits today: ${user.hits_today}`);
+            console.log(`[Limit] SUCCESS for ${chatId} (${user.plan}). Hits today: ${user.hits_today}`);
             sendHitNotification(card, result, gate, user.plan);
         } else {
             console.log(`[Limit] FAILED/DECLINED for ${chatId} (${status}). Limit NOT deducted.`);

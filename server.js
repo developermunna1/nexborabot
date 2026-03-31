@@ -382,17 +382,23 @@ app.post('/hit-proxy/:gate', async (req, res) => {
             validateStatus: () => true 
         });
 
-        let result = response.data || {};
+        let result = response.data;
         
-        // If result is empty, check status code for generic error messages
-        if (Object.keys(result).length === 0) {
+        // Handle cases where result is a string (like "Unauthorized") or empty
+        if (!result || typeof result !== 'object') {
+            const errorMsg = typeof result === 'string' ? result : 'Empty Response';
             if (response.status === 401 || response.status === 403) {
-                result = { status: 'error', message: 'Invalid API Key or Access Denied' };
-            } else if (response.status >= 500) {
-                result = { status: 'error', message: 'Hitter Server Error (500+)' };
+                result = { status: 'error', message: `Invalid API Key: ${errorMsg}` };
+            } else if (response.status >= 400) {
+                result = { status: 'error', message: `Hitter Error (${response.status}): ${errorMsg}` };
             } else {
-                result = { status: 'error', message: `Unexpected Server Error (HTTP ${response.status})` };
+                result = { status: 'error', message: `Unexpected Response: ${errorMsg}` };
             }
+        }
+        
+        // Fallback for empty objects
+        if (Object.keys(result).length === 0) {
+            result = { status: 'error', message: 'No data returned from hitter server' };
         }
 
         const status = (result.status || '').toLowerCase();

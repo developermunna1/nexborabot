@@ -49,7 +49,7 @@
             </div>
 
             <div class="admin-card">
-                <h3>Generate Redeem Code</h3>
+                <h3>Generate Redeem Code (Standard 7-Day)</h3>
                 <select id="codePlan">
                     <option value="silver">Silver Plan ($5)</option>
                     <option value="gold">Gold Plan ($7)</option>
@@ -58,6 +58,32 @@
                 <div id="codeResult" class="hidden">
                     <div class="code-display" id="generatedCode"></div>
                     <p style="font-size: 12px; margin-top: 5px; color: #888;">Share this code with the user.</p>
+                </div>
+            </div>
+
+            <div class="admin-card">
+                <h3 style="color: #3b82f6;">Generate Promo Code (Limited Uses + Hourly)</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div>
+                        <label style="font-size: 11px; color: #888;">PLAN</label>
+                        <select id="promoPlan">
+                            <option value="silver">Silver</option>
+                            <option value="gold">Gold</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size: 11px; color: #888;">MAX USERS</label>
+                        <input type="number" id="promoMaxUses" value="10" placeholder="e.g. 50">
+                    </div>
+                </div>
+                <label style="font-size: 11px; color: #888;">DURATION (In Hours)</label>
+                <input type="number" id="promoDuration" value="1" placeholder="e.g. 1 (for 1 hour)">
+                
+                <button onclick="generatePromo()" style="background: #1d4ed8;">Generate Promo Code</button>
+                
+                <div id="promoResult" class="hidden">
+                    <div class="code-display" id="generatedPromo" style="background: #1e3a8a; color: #60a5fa;"></div>
+                    <p style="font-size: 12px; margin-top: 5px; color: #888;">This code works for multiple users until the limit is reached.</p>
                 </div>
             </div>
 
@@ -215,6 +241,26 @@
                     document.getElementById('generatedCode').innerText = data.code;
                 }
             } catch (e) { alert('Failed to generate code'); }
+        }
+
+        async function generatePromo() {
+            const plan = document.getElementById('promoPlan').value;
+            const maxUses = document.getElementById('promoMaxUses').value;
+            const durationHours = document.getElementById('promoDuration').value;
+            
+            try {
+                const res = await fetch('/admin/generate-promo', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password, plan, maxUses, durationHours })
+                });
+                const data = await res.json();
+                if (data.code) {
+                    document.getElementById('promoResult').classList.remove('hidden');
+                    document.getElementById('generatedPromo').innerText = data.code;
+                    alert('Promo Code Generated Successfully!');
+                }
+            } catch (e) { alert('Failed to generate promo code'); }
         }
 
         async function directUpdate() {

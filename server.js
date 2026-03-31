@@ -470,25 +470,56 @@ app.post('/redeem-code', async (req, res) => {
     return res.status(404).json({ error: 'User not found. Please login first.' });
   }
 
-  // Set Plan and Expiry (Default 7 days)
+  // Handle Promo Code Logic
+  let durationMsg = '7 day(s)';
   const expiryDate = new Date();
-  expiryDate.setDate(expiryDate.getDate() + 7);
+
+  if (codeData.type === 'promo') {
+    // Check if user already used this promo code
+    if (codeData.redeemedBy && codeData.redeemedBy.includes(chatId)) {
+      return res.status(400).json({ error: 'You have already redeemed this promo code!' });
+    }
+
+    // Check usage limit
+    if (codeData.usedCount >= codeData.maxUses) {
+      codeData.status = 'exhausted';
+      await writeDB(db);
+      return res.status(400).json({ error: 'Promo code usage limit reached!' });
+    }
+
+    // Set duration in hours
+    const hours = parseInt(codeData.durationHours) || 1;
+    expiryDate.setHours(expiryDate.getHours() + hours);
+    durationMsg = `${hours} hour(s)`;
+
+    // Update usage
+    codeData.usedCount = (codeData.usedCount || 0) + 1;
+    if (!codeData.redeemedBy) codeData.redeemedBy = [];
+    codeData.redeemedBy.push(chatId);
+
+    if (codeData.usedCount >= codeData.maxUses) {
+      codeData.status = 'exhausted';
+    }
+  } else {
+    // Standard 7-day Code
+    expiryDate.setDate(expiryDate.getDate() + 7);
+    codeData.status = 'used';
+    codeData.usedBy = chatId;
+  }
 
   userData.plan = codeData.plan;
   userData.expiry = expiryDate.toISOString();
-  codeData.status = 'used';
-  codeData.usedBy = chatId;
 
   await writeDB(db);
 
   // Notify after successful redemption
-  notifyPlanActivation(chatId, userData.plan, '7 day(s)');
+  notifyPlanActivation(chatId, userData.plan, durationMsg);
 
   res.json({ 
     success: true, 
     plan: userData.plan, 
     expiry: userData.expiry,
-    message: `Congratulations! Your ${userData.plan.toUpperCase()} plan is now active for 7 days!`
+    message: `Congratulations! Your ${userData.plan.toUpperCase()} plan is now active for ${durationMsg}!`
   });
 });
 
@@ -501,10 +532,38 @@ app.post('/admin/generate-code', async (req, res) => {
 
   const code = 'HIT-' + Math.random().toString(36).substring(2, 10).toUpperCase();
   const db = readDB();
-  db.redeem_codes[code] = { plan, status: 'active', createdAt: new Date().toISOString() };
+  db.redeem_codes[code] = { 
+    type: 'standard',
+    plan, 
+    status: 'active', 
+    createdAt: new Date().toISOString() 
+  };
   await storage.save(db);
 
   res.json({ code, plan });
+});
+
+// Generate Promo Code Endpoint
+app.post('/admin/generate-promo', async (req, res) => {
+  const { password, plan, maxUses, durationHours } = req.body;
+  if (password !== ADMIN_PWD) return res.status(401).json({ error: 'Unauthorized' });
+
+  const code = 'PROMO-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+  const db = readDB();
+  
+  db.redeem_codes[code] = { 
+    type: 'promo',
+    plan: plan || 'silver', 
+    maxUses: parseInt(maxUses) || 1,
+    durationHours: parseInt(durationHours) || 1,
+    usedCount: 0,
+    redeemedBy: [],
+    status: 'active', 
+    createdAt: new Date().toISOString() 
+  };
+  
+  await storage.save(db);
+  res.json({ code, plan, maxUses, durationHours });
 });
 
 app.post('/admin/users', (req, res) => {

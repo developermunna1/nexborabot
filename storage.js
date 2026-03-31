@@ -3,21 +3,15 @@ const fs = require('fs');
 const path = require('path');
 const config = require('./config');
 
-// --- CONFIGURATION ---
-// We use the REST API because it's lightweight and doesn't require new dependencies.
-const FIREBASE_URL = config.FIREBASE_URL.endsWith('/') ? config.FIREBASE_URL.slice(0, -1) : config.FIREBASE_URL;
+const FIREBASE_URL = config.FIREBASE_URL ? (config.FIREBASE_URL.endsWith('/') ? config.FIREBASE_URL.slice(0, -1) : config.FIREBASE_URL) : null;
 const DB_PATH = 'database.json';
 
-let dbCache = null;
+let dbCache = { users: {}, redeem_codes: {} }; // Initialized to prevent null errors
 
-/**
- * Firebase Realtime Storage Provider (via REST API)
- * Prevents data loss on Render and provides real-time persistence.
- */
 const storage = {
     async init() {
         if (!FIREBASE_URL) {
-            console.warn('⚠️ FIREBASE_URL is not set. Data will NOT persist on Render restarts!');
+            console.warn('⚠️ FIREBASE_URL is not set. Using local storage.');
             return this.loadLocal();
         }
         return this.loadFirebase();
@@ -27,28 +21,30 @@ const storage = {
         try {
             const filePath = path.join(__dirname, DB_PATH);
             if (fs.existsSync(filePath)) {
-                dbCache = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-            } else {
-                dbCache = { users: {}, redeem_codes: {} };
+                const data = fs.readFileSync(filePath, 'utf8');
+                dbCache = data ? JSON.parse(data) : { users: {}, redeem_codes: {} };
             }
-            return dbCache;
         } catch (err) {
             console.error('[Storage] Local load failed:', err.message);
-            return { users: {}, redeem_codes: {} };
         }
+        if (!dbCache.users) dbCache.users = {};
+        if (!dbCache.redeem_codes) dbCache.redeem_codes = {};
+        return dbCache;
     },
 
     async loadFirebase() {
         try {
-            console.log('[Storage] Fetching DB from Firebase Realtime Database...');
+            console.log('[Storage] Fetching DB from Firebase...');
             const response = await axios.get(`${FIREBASE_URL}/db.json`);
             
-            if (response.data) {
+            if (response.data && typeof response.data === 'object') {
                 dbCache = response.data;
-                console.log('[Storage] DB loaded successfully from Firebase.');
+                if (!dbCache.users) dbCache.users = {};
+                if (!dbCache.redeem_codes) dbCache.redeem_codes = {};
+                console.log('[Storage] DB loaded from Firebase.');
             } else {
-                console.log('[Storage] Firebase DB is empty. Initializing...');
-                dbCache = await this.loadLocal(); // Try to seed from local if firebase is empty
+                console.log('[Storage] Firebase DB empty. Initializing...');
+                await this.loadLocal();
                 await this.save(dbCache);
             }
             return dbCache;
@@ -60,24 +56,29 @@ const storage = {
 
     async save(data) {
         dbCache = data || dbCache;
-        
+        if (!dbCache.users) dbCache.users = {};
+        if (!dbCache.redeem_codes) dbCache.redeem_codes = {};
+
         if (!FIREBASE_URL) {
-            // Fallback to local write
             fs.writeFileSync(path.join(__dirname, DB_PATH), JSON.stringify(dbCache, null, 2));
             return;
         }
 
         try {
-            // Simple PUT replaces the entire object at /db.json
             await axios.put(`${FIREBASE_URL}/db.json`, dbCache);
-            // console.log('[Storage] DB synced to Firebase.');
         } catch (err) {
-            console.error('[Storage] Firebase save failed:', err.response ? err.response.data : err.message);
+            console.error('[Storage] Firebase save failed:', err.message);
+            // Fallback: update local file just in case
+            try {
+                fs.writeFileSync(path.join(__dirname, DB_PATH), JSON.stringify(dbCache, null, 2));
+            } catch (e) {}
         }
     },
 
     getDB() {
-        return dbCache || { users: {}, redeem_codes: {} };
+        if (!dbCache.users) dbCache.users = {};
+        if (!dbCache.redeem_codes) dbCache.redeem_codes = {};
+        return dbCache;
     }
 };
 

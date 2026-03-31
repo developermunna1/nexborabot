@@ -545,106 +545,130 @@ app.post('/admin/generate-code', async (req, res) => {
 
 // Generate Promo Code Endpoint
 app.post('/admin/generate-promo', async (req, res) => {
-  const { password, plan, maxUses, durationHours } = req.body;
-  if (password !== ADMIN_PWD) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const { password, plan, maxUses, durationHours } = req.body;
+    if (password !== ADMIN_PWD) return res.status(401).json({ error: 'Unauthorized' });
 
-  const code = 'PROMO-' + Math.random().toString(36).substring(2, 8).toUpperCase();
-  const db = readDB();
-  
-  db.redeem_codes[code] = { 
-    type: 'promo',
-    plan: plan || 'silver', 
-    maxUses: parseInt(maxUses) || 1,
-    durationHours: parseInt(durationHours) || 1,
-    usedCount: 0,
-    redeemedBy: [],
-    status: 'active', 
-    createdAt: new Date().toISOString() 
-  };
-  
-  await storage.save(db);
-  res.json({ code, plan, maxUses, durationHours });
+    const code = 'PROMO-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+    const db = readDB();
+    
+    if (!db.redeem_codes) db.redeem_codes = {};
+
+    db.redeem_codes[code] = { 
+      type: 'promo',
+      plan: plan || 'silver', 
+      maxUses: parseInt(maxUses) || 1,
+      durationHours: parseInt(durationHours) || 1,
+      usedCount: 0,
+      redeemedBy: [],
+      status: 'active', 
+      createdAt: new Date().toISOString() 
+    };
+    
+    await storage.save(db);
+    res.json({ code, plan, maxUses, durationHours });
+  } catch (err) {
+    console.error('[Admin] Generate Promo Error:', err.message);
+    res.status(500).json({ error: 'Server Error', message: err.message });
+  }
 });
 
 app.post('/admin/users', (req, res) => {
-  const { password } = req.body;
-  if (password !== ADMIN_PWD) return res.status(401).json({ error: 'Unauthorized' });
-  const db = readDB();
-  res.json(db.users);
+  try {
+    const { password } = req.body;
+    if (password !== ADMIN_PWD) return res.status(401).json({ error: 'Unauthorized' });
+    const db = readDB();
+    if (!db || !db.users) return res.json({});
+    res.json(db.users);
+  } catch (err) {
+    console.error('[Admin] Get Users Error:', err.message);
+    res.status(500).json({ error: 'Server Error', message: err.message });
+  }
 });
 
 // DIRECT Activation by Chat ID
 app.post('/admin/update-user', async (req, res) => {
-  const { password, targetChatId, plan, duration } = req.body;
-  if (password !== ADMIN_PWD) return res.status(401).json({ error: 'Unauthorized' });
-  if (!targetChatId || !plan) return res.status(400).json({ error: 'Chat ID and Plan required' });
+  try {
+    const { password, targetChatId, plan, duration } = req.body;
+    if (password !== ADMIN_PWD) return res.status(401).json({ error: 'Unauthorized' });
+    if (!targetChatId || !plan) return res.status(400).json({ error: 'Chat ID and Plan required' });
 
-  const db = readDB();
-  let user = db.users[targetChatId];
+    const db = readDB();
+    let user = db.users[targetChatId];
 
-  if (!user) {
-    user = {
-      plan: 'free',
-      hits_today: 0,
-      last_hit_date: new Date().toDateString(),
-      expiry: null
-    };
-    db.users[targetChatId] = user;
+    if (!user) {
+      user = {
+        plan: 'free',
+        hits_today: 0,
+        last_hit_date: new Date().toDateString(),
+        expiry: null,
+        referralCount: 0,
+        referredBy: null
+      };
+      db.users[targetChatId] = user;
+    }
+
+    user.plan = plan;
+    
+    if (duration === '7days') {
+      const expiry = new Date();
+      expiry.setDate(expiry.getDate() + 7);
+      user.expiry = expiry.toISOString();
+    } else if (duration === 'permanent') {
+      user.expiry = null; // No expiry
+    }
+
+    await storage.save(db);
+    // Notify after successful activation
+    notifyPlanActivation(targetChatId, plan, duration === '7days' ? '7 day(s)' : 'Permanent');
+
+    res.json({ success: true, message: `User ${targetChatId} updated to ${plan.toUpperCase()} (${duration})` });
+  } catch (err) {
+    console.error('[Admin] Update User Error:', err.message);
+    res.status(500).json({ error: 'Server Error', message: err.message });
   }
-
-  user.plan = plan;
-  
-  if (duration === '7days') {
-    const expiry = new Date();
-    expiry.setDate(expiry.getDate() + 7);
-    user.expiry = expiry.toISOString();
-  } else if (duration === 'permanent') {
-    user.expiry = null; // No expiry (continues until removed)
-  }
-
-  await storage.save(db);
-
-  // Notify after successful activation
-  notifyPlanActivation(targetChatId, plan, duration === '7days' ? '7 day(s)' : 'Permanent');
-
-  res.json({ success: true, message: `User ${targetChatId} updated to ${plan.toUpperCase()} (${duration})` });
 });
 
 // Update Referrals Endpoint
 app.post('/admin/update-referrals', async (req, res) => {
-  const { password, targetChatId, newCount } = req.body;
-  if (password !== ADMIN_PWD) return res.status(401).json({ error: 'Unauthorized' });
-  if (!targetChatId) return res.status(400).json({ error: 'Chat ID required' });
+  try {
+    const { password, targetChatId, newCount } = req.body;
+    if (password !== ADMIN_PWD) return res.status(401).json({ error: 'Unauthorized' });
+    if (!targetChatId) return res.status(400).json({ error: 'Chat ID required' });
 
-  const db = readDB();
-  let user = db.users[targetChatId];
+    const db = readDB();
+    let user = db.users[targetChatId];
 
-  if (!user) {
-    user = {
-      plan: 'free',
-      hits_today: 0,
-      last_hit_date: new Date().toDateString(),
-      expiry: null,
-      referralCount: 0,
-      referredBy: null
-    };
-    db.users[targetChatId] = user;
+    if (!user) {
+      user = {
+        plan: 'free',
+        hits_today: 0,
+        last_hit_date: new Date().toDateString(),
+        expiry: null,
+        referralCount: 0,
+        referredBy: null
+      };
+      db.users[targetChatId] = user;
+    }
+
+    user.referralCount = parseInt(newCount) || 0;
+
+    // Auto Reward if count >= 10
+    if (user.referralCount >= 10 && user.plan === 'free') {
+        const expiry = new Date();
+        expiry.setDate(expiry.getDate() + 7);
+        user.plan = 'silver';
+        user.expiry = expiry.toISOString();
+        user.referralCount -= 10;
+        notifyPlanActivation(targetChatId, 'silver', '7 day(s)');
+    }
+
+    await storage.save(db);
+    res.json({ success: true, message: `User ${targetChatId} referrals updated to ${user.referralCount}` });
+  } catch (err) {
+    console.error('[Admin] Update Referrals Error:', err.message);
+    res.status(500).json({ error: 'Server Error', message: err.message });
   }
-
-  user.referralCount = parseInt(newCount) || 0;
-
-  // Auto Reward if count >= 10
-  if (user.referralCount >= 10 && user.plan === 'free') {
-      const expiry = new Date();
-      expiry.setDate(expiry.getDate() + 7);
-      user.plan = 'silver';
-      user.expiry = expiry.toISOString();
-      user.referralCount -= 10;
-      notifyPlanActivation(targetChatId, 'silver', '7 day(s)');
-  }
-
-  await storage.save(db);
-  res.json({ success: true, message: `User ${targetChatId} referrals updated to ${user.referralCount}` });
 });
 
 // Ping endpoint

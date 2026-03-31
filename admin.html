@@ -46,6 +46,10 @@
                     <div style="font-size: 24px; font-weight: 700; color: #10b981;" id="statPremiumUsers">0</div>
                     <div style="font-size: 12px; color: #888;">PREMIUM USERS</div>
                 </div>
+                <div>
+                    <div style="font-size: 24px; font-weight: 700; color: #f59e0b;" id="statTotalHits">0</div>
+                    <div style="font-size: 12px; color: #888;">TOTAL HITS</div>
+                </div>
             </div>
 
             <div class="admin-card">
@@ -123,6 +127,7 @@
                                 <th>Chat ID</th>
                                 <th>Plan</th>
                                 <th>Hits Today</th>
+                                <th>Total Hits</th>
                                 <th>Referrals</th>
                                 <th>Expiry</th>
                                 <th>Action</th>
@@ -232,9 +237,12 @@
             const userEntries = Object.entries(users);
             let total = userEntries.length;
             let premium = 0;
+            let totalHits = 0;
 
             userEntries.forEach(([id, user]) => {
                 if (user.plan !== 'free') premium++;
+                const uTotalHits = user.total_hits || 0;
+                totalHits += uTotalHits;
                 
                 const tr = document.createElement('tr');
                 const expiry = user.expiry ? new Date(user.expiry).toLocaleDateString() : 'N/A';
@@ -242,6 +250,7 @@
                     <td><code>${id}</code></td>
                     <td><span class="plan-tag ${user.plan}">${user.plan}</span></td>
                     <td>${user.hits_today} / ${user.plan === 'free' ? 2 : '∞'}</td>
+                    <td><b>${uTotalHits}</b></td>
                     <td>
                         <b>${user.referralCount || 0}</b> 
                         <button onclick="editReferrals('${id}', ${user.referralCount || 0})" style="width: auto; padding: 2px 6px; font-size: 10px; display: inline-block; margin-left: 5px;">Edit</button>
@@ -256,6 +265,7 @@
 
             document.getElementById('statTotalUsers').innerText = total;
             document.getElementById('statPremiumUsers').innerText = premium;
+            document.getElementById('statTotalHits').innerText = totalHits;
         }
 
         async function editReferrals(chatId, current) {

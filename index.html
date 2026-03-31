@@ -28,6 +28,22 @@
         .referral-progress { background: #0f111a; height: 10px; border-radius: 5px; margin-top: 15px; overflow: hidden; }
         .progress-bar { background: #10b981; height: 100%; border-radius: 5px; width: 0%; transition: width 0.5s; }
         .logout-btn-home { margin-top: 30px; text-align: center; color: #ef4444; font-size: 14px; cursor: pointer; }
+
+        /* Stats Grid */
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 20px; }
+        .stat-card { background: #1a1c23; border: 1px solid #2d2f39; border-radius: 16px; padding: 20px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px; transition: transform 0.2s; }
+        .stat-card:active { transform: scale(0.96); }
+        .stat-card i { font-size: 20px; margin-bottom: 4px; }
+        .stat-card .val { font-size: 24px; font-weight: 800; font-family: 'Inter', sans-serif; }
+        .stat-card .lbl { font-size: 11px; color: #888; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        
+        .card-users i { color: #3b82f6; }
+        .card-hits i { color: #10b981; }
+        .card-your-hits i { color: #ef4444; }
+        .card-rank i { color: #f59e0b; }
+        
+        .card-your-hits .val { color: #a78bfa; } /* Purple accent for your hits */
+        .card-rank .val { color: #f59e0b; } /* Gold accent for rank */
     </style>
 </head>
 <body>
@@ -58,7 +74,10 @@
                 <span id="userName" class="profile-name">Guest User</span>
                 <span id="userChatIdDisplay" class="profile-id">ID: 000000000</span>
             </div>
-            <div class="plan-tag" id="profilePlanBadge">FREE</div>
+            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+                <div class="plan-tag" id="profilePlanBadge">FREE</div>
+                <div id="profileRankBadge" style="font-size: 10px; color: #888; font-weight: 600;">Rank #--</div>
+            </div>
         </div>
 
         <div class="hero">
@@ -67,6 +86,29 @@
             <button class="launch-btn" onclick="window.location.href='hitter.html'">
                 <i class="fas fa-bolt"></i> START HITTING
             </button>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card card-users">
+                <i class="fas fa-users"></i>
+                <div class="val" id="valTotalUsers">0</div>
+                <div class="lbl">Total Users</div>
+            </div>
+            <div class="stat-card card-hits">
+                <i class="fas fa-bolt"></i>
+                <div class="val" id="valTotalHits">0</div>
+                <div class="lbl">Total Hits</div>
+            </div>
+            <div class="stat-card card-your-hits">
+                <i class="fas fa-crosshairs"></i>
+                <div class="val" id="valYourHits">0</div>
+                <div class="lbl">Your Hits</div>
+            </div>
+            <div class="stat-card card-rank">
+                <i class="fas fa-trophy"></i>
+                <div class="val" id="valYourRank">#--</div>
+                <div class="lbl">Your Rank</div>
+            </div>
         </div>
 
         <div class="grid-nav">
@@ -141,6 +183,13 @@
                 document.getElementById('homePlan').innerText = data.plan.toUpperCase();
                 document.getElementById('profilePlanBadge').innerText = data.plan.toUpperCase();
                 document.getElementById('homeHits').innerText = data.maxHits === 'Unlimited' ? 'Unlimited' : (data.maxHits - data.hitsToday);
+                document.getElementById('profileRankBadge').innerText = `Rank #${data.userRank || '--'}`;
+
+                // Update Stats Grid
+                document.getElementById('valTotalUsers').innerText = data.totalUsers || 0;
+                document.getElementById('valTotalHits').innerText = data.totalHitsGlobal || 0;
+                document.getElementById('valYourHits').innerText = data.userTotalHits || 0;
+                document.getElementById('valYourRank').innerText = `#${data.userRank || '--'}`;
                 
                 const refCount = data.referralCount || 0;
                 document.getElementById('homeReferralText').innerText = `${refCount} / 10`;

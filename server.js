@@ -214,7 +214,8 @@ app.post('/get-user-info', (req, res) => {
       expiry: null,
       referralCount: 0,
       referredBy: null,
-      isVerified: false
+      isVerified: false,
+      total_hits: 0
     };
     db.users[chatId] = user;
     console.log(`[Referral] New user registered: ${chatId}`);
@@ -239,8 +240,31 @@ app.post('/get-user-info', (req, res) => {
     hitsToday: user.hits_today,
     maxHits: user.plan === 'free' ? 2 : 'Unlimited',
     expiry: user.expiry,
+    userRank: 0
+  };
+
+  // Calculate Global Stats & Rank
+  const allUsers = Object.entries(db.users)
+    .map(([id, u]) => ({ id, total_hits: u.total_hits || 0 }))
+    .sort((a, b) => b.total_hits - a.total_hits);
+
+  const totalUsers = allUsers.length;
+  const totalHitsGlobal = allUsers.reduce((sum, u) => sum + u.total_hits, 0);
+  const userTotalHits = user.total_hits || 0;
+  const userRank = allUsers.findIndex(u => u.id === chatId) + 1;
+
+  res.json({
+    chatId,
+    plan: user.plan,
+    hitsToday: user.hits_today,
+    maxHits: user.plan === 'free' ? 2 : 'Unlimited',
+    expiry: user.expiry,
     referralCount: user.referralCount || 0,
-    isVerified: user.isVerified || false
+    isVerified: user.isVerified || false,
+    totalUsers,
+    totalHitsGlobal,
+    userTotalHits,
+    userRank
   });
 });
 
@@ -481,12 +505,15 @@ app.post('/hit-proxy/:gate', async (req, res) => {
         // ONLY deduct from limit if strictly 'charged' or 'approved'
         if (status === 'charged' || status === 'approved') {
             // ONLY increment hits for FREE users. Premium users stay at 0.
-            if (user.plan === 'free') {
-                user.hits_today++;
-            }
-            await storage.save(db);
-            console.log(`[Limit] SUCCESS for ${chatId} (${user.plan}). Hits today: ${user.hits_today}`);
-            sendHitNotification(result, gate, user.plan, userName, site, amount);
+                if (user.plan === 'free') {
+                    user.hits_today++;
+                }
+                // Global Total Hits
+                user.total_hits = (user.total_hits || 0) + 1;
+                
+                await storage.save(db);
+                console.log(`[Limit] SUCCESS for ${chatId} (${user.plan}). Total hits: ${user.total_hits}`);
+                sendHitNotification(result, gate, user.plan, userName, site, amount);
         } else {
             console.log(`[Limit] FAILED/DECLINED for ${chatId} (${status}). Limit NOT deducted.`);
         }
@@ -699,12 +726,16 @@ app.post('/admin/update-user', async (req, res) => {
 
     user.plan = plan;
     
-    if (duration === '7days') {
-      const expiry = new Date();
-      expiry.setDate(expiry.getDate() + 7);
-      user.expiry = expiry.toISOString();
-    } else if (duration === 'permanent') {
-      user.expiry = null; // No expiry
+    if (plan === 'free') {
+      user.expiry = null;
+    } else {
+      if (duration === '7days') {
+        const expiry = new Date();
+        expiry.setDate(expiry.getDate() + 7);
+        user.expiry = expiry.toISOString();
+      } else if (duration === 'permanent') {
+        user.expiry = null; // No expiry
+      }
     }
 
     await storage.save(db);

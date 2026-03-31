@@ -1,27 +1,26 @@
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
+const config = require('./config');
 
 // --- CONFIGURATION ---
-const GH_TOKEN = process.env.GH_TOKEN; // Set this in Render Env Vars
-const REPO_OWNER = 'munna1234mm';
-const REPO_NAME = 'newhiitttergoodworl';
+// We use the REST API because it's lightweight and doesn't require new dependencies.
+const FIREBASE_URL = config.FIREBASE_URL.endsWith('/') ? config.FIREBASE_URL.slice(0, -1) : config.FIREBASE_URL;
 const DB_PATH = 'database.json';
 
 let dbCache = null;
-let dbSha = null;
 
 /**
- * GitHub Storage Provider
- * Syncs database.json with the repository to prevent data loss on Render.
+ * Firebase Realtime Storage Provider (via REST API)
+ * Prevents data loss on Render and provides real-time persistence.
  */
 const storage = {
     async init() {
-        if (!GH_TOKEN) {
-            console.warn('⚠️ GH_TOKEN is not set. Data will NOT persist on Render restarts!');
+        if (!FIREBASE_URL) {
+            console.warn('⚠️ FIREBASE_URL is not set. Data will NOT persist on Render restarts!');
             return this.loadLocal();
         }
-        return this.loadGitHub();
+        return this.loadFirebase();
     },
 
     async loadLocal() {
@@ -39,58 +38,41 @@ const storage = {
         }
     },
 
-    async loadGitHub() {
+    async loadFirebase() {
         try {
-            console.log('[Storage] Fetching DB from GitHub...');
-            const response = await axios.get(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${DB_PATH}`, {
-                headers: { Authorization: `token ${GH_TOKEN}` }
-            });
+            console.log('[Storage] Fetching DB from Firebase Realtime Database...');
+            const response = await axios.get(`${FIREBASE_URL}/db.json`);
             
-            dbSha = response.data.sha;
-            const content = Buffer.from(response.data.content, 'base64').toString('utf8');
-            dbCache = JSON.parse(content);
-            console.log('[Storage] DB loaded successfully from GitHub.');
+            if (response.data) {
+                dbCache = response.data;
+                console.log('[Storage] DB loaded successfully from Firebase.');
+            } else {
+                console.log('[Storage] Firebase DB is empty. Initializing...');
+                dbCache = await this.loadLocal(); // Try to seed from local if firebase is empty
+                await this.save(dbCache);
+            }
             return dbCache;
         } catch (err) {
-            if (err.response && err.response.status === 404) {
-                console.log('[Storage] DB file not found on GitHub. Initializing empty DB.');
-                dbCache = { users: {}, redeem_codes: {} };
-                return dbCache;
-            }
-            console.error('[Storage] GitHub load failed:', err.message);
+            console.error('[Storage] Firebase load failed:', err.message);
             return this.loadLocal();
         }
     },
 
     async save(data) {
         dbCache = data || dbCache;
-        if (!GH_TOKEN) {
+        
+        if (!FIREBASE_URL) {
             // Fallback to local write
             fs.writeFileSync(path.join(__dirname, DB_PATH), JSON.stringify(dbCache, null, 2));
             return;
         }
 
         try {
-            // We need to fetch the latest SHA before saving to avoid conflicts
-            const getRes = await axios.get(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${DB_PATH}`, {
-                headers: { Authorization: `token ${GH_TOKEN}` }
-            }).catch(() => null);
-
-            if (getRes) dbSha = getRes.data.sha;
-
-            const content = Buffer.from(JSON.stringify(dbCache, null, 2)).toString('base64');
-            const putRes = await axios.put(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${DB_PATH}`, {
-                message: `Sync Database: ${new Date().toISOString()}`,
-                content: content,
-                sha: dbSha
-            }, {
-                headers: { Authorization: `token ${GH_TOKEN}` }
-            });
-            
-            dbSha = putRes.data.content.sha;
-            console.log('[Storage] DB synced to GitHub.');
+            // Simple PUT replaces the entire object at /db.json
+            await axios.put(`${FIREBASE_URL}/db.json`, dbCache);
+            // console.log('[Storage] DB synced to Firebase.');
         } catch (err) {
-            console.error('[Storage] GitHub save failed:', err.response ? err.response.data : err.message);
+            console.error('[Storage] Firebase save failed:', err.response ? err.response.data : err.message);
         }
     },
 

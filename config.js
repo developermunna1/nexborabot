@@ -7,6 +7,9 @@ module.exports = {
   // --- EXTRACTION API ---
   EXTRACT_API: 'https://nonburnable-undolorously-sheilah.ngrok-free.dev/api/extract',
 
+  // --- FIREBASE CONFIG (REST API) ---
+  FIREBASE_URL: 'https://hitterapweapp-default-rtdb.firebaseio.com',
+  
   // --- NOTIFICATION CONFIG ---
   NOTIFY_BOT_TOKEN: '8680374467:AAEcO6m-O6BOQD0mec7cyURfqQ8Ax2bphkk',
   NOTIFY_CHAT_ID: '-1003721268860',

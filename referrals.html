@@ -76,10 +76,19 @@
                     body: JSON.stringify({ chatId })
                 });
                 const data = await res.json();
+                
+                // Redirect if not verified
+                if (data.isVerified === false) {
+                    window.location.href = '/';
+                    return;
+                }
+
                 const count = data.referralCount || 0;
                 document.getElementById('countDisplay').innerText = `${count} / 10`;
                 document.getElementById('barDisplay').style.width = `${Math.min(count, 10) * 10}%`;
-            } catch (e) {}
+            } catch (e) {
+                console.error('Failed to load user info', e);
+            }
         }
 
         function copyRefLink() {

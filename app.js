@@ -45,6 +45,13 @@ async function checkAuth() {
                 body: JSON.stringify({ chatId, referrerId })
             });
             const data = await res.json();
+            
+            // Redirect if not verified
+            if (data.isVerified === false) {
+                window.location.href = '/';
+                return;
+            }
+
             userPlan = data.plan;
             remainingHits = data.plan === 'free' ? (data.maxHits - data.hitsToday) : 'Unlimited';
             maxHits = data.maxHits;

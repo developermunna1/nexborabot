@@ -146,10 +146,52 @@
                 document.getElementById('homeReferralText').innerText = `${refCount} / 10`;
                 document.getElementById('homeProgressBar').style.width = `${Math.min(refCount, 10) * 10}%`;
 
-                document.getElementById('app').classList.remove('blur');
+                // Handle Verification Overlay
+                if (data.isVerified === false) {
+                    document.getElementById('verifyOverlay').classList.remove('hidden');
+                    document.getElementById('app').classList.add('blur');
+                } else {
+                    document.getElementById('verifyOverlay').classList.add('hidden');
+                    document.getElementById('app').classList.remove('blur');
+                }
+
                 document.getElementById('loginOverlay').classList.add('hidden');
             } catch (e) {
                 console.error('Home init failed', e);
+            }
+        }
+
+        async function verifyMembership() {
+            const btn = document.getElementById('verifyBtn');
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying...';
+
+            try {
+                const res = await fetch('/verify-membership', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ chatId: currentChatId })
+                });
+                
+                const data = await res.json();
+                if (res.ok) {
+                    // Success!
+                    btn.innerHTML = '<i class="fas fa-check"></i> Verified!';
+                    btn.style.background = '#10b981';
+                    setTimeout(() => {
+                        location.reload(); // Refresh to update user state
+                    }, 1500);
+                } else {
+                    alert(data.error || 'Please join all channels first!');
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                }
+            } catch (err) {
+                console.error('Verification failed', err);
+                alert('Connection error. Please try again.');
+                btn.disabled = false;
+                btn.innerHTML = originalText;
             }
         }
 
@@ -209,6 +251,49 @@
             }
         }
     </script>
+
+    <!-- Verification Overlay -->
+    <div id="verifyOverlay" class="verify-overlay hidden">
+        <div class="verify-modal">
+            <div class="verify-header">
+                <i class="fas fa-shield-check"></i>
+                <h2>Verify Membership</h2>
+                <p>To access the premium hitter features, you must join our official channels.</p>
+            </div>
+            
+            <div class="channel-list">
+                <a href="https://t.me/bdhitlog" target="_blank" class="channel-item">
+                    <div class="channel-info">
+                        <i class="fab fa-telegram-plane"></i>
+                        <span class="channel-name">BD Hit Log</span>
+                    </div>
+                    <span class="join-tag">Join</span>
+                </a>
+                <a href="https://t.me/hitterlite" target="_blank" class="channel-item">
+                    <div class="channel-info">
+                        <i class="fab fa-telegram-plane"></i>
+                        <span class="channel-name">Hitter Lite</span>
+                    </div>
+                    <span class="join-tag">Join</span>
+                </a>
+                <a href="https://t.me/Nexvora_Official" target="_blank" class="channel-item">
+                    <div class="channel-info">
+                        <i class="fab fa-telegram-plane"></i>
+                        <span class="channel-name">Nexvora Official</span>
+                    </div>
+                    <span class="join-tag">Join</span>
+                </a>
+            </div>
+
+            <button id="verifyBtn" class="verify-btn" onclick="verifyMembership()">
+                <i class="fas fa-check-circle"></i> I HAVE JOINED & VERIFY
+            </button>
+
+            <div class="verify-footer">
+                <p>Joined already? Click verify above.</p>
+            </div>
+        </div>
+    </div>
 
     <!-- Limit Reached Modal -->
     <div id="limitModal" class="limit-modal-overlay hidden">

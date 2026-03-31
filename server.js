@@ -213,30 +213,19 @@ app.post('/get-user-info', (req, res) => {
       last_hit_date: new Date().toDateString(),
       expiry: null,
       referralCount: 0,
-      referredBy: null
+      referredBy: null,
+      isVerified: false
     };
     db.users[chatId] = user;
     console.log(`[Referral] New user registered: ${chatId}`);
   }
 
-  // Handle Referral Logic for New Users
+  // Handle Referral Logic for New Users (Wait for verification to credit)
   if (isNewUser && referrerId && referrerId !== chatId) {
     const referrer = db.users[referrerId];
     if (referrer) {
       user.referredBy = referrerId;
-      referrer.referralCount = (referrer.referralCount || 0) + 1;
-      console.log(`[Referral] User ${chatId} referred by ${referrerId}. New count: ${referrer.referralCount}`);
-      
-      // Reward: 10 Referrals = Silver Plan for 7 days (Reset 10)
-      if (referrer.referralCount >= 10) {
-        const expiry = new Date();
-        expiry.setDate(expiry.getDate() + 7);
-        referrer.plan = 'silver';
-        referrer.expiry = expiry.toISOString();
-        referrer.referralCount -= 10; // Reset balance
-        console.log(`[Referral] User ${referrerId} reached 10 referrals! Upgraded to SILVER and reset count.`);
-        notifyPlanActivation(referrerId, 'silver', '7 day(s)');
-      }
+      console.log(`[Referral] User ${chatId} referred by ${referrerId}. Awaiting verification.`);
     }
   }
 
@@ -250,7 +239,8 @@ app.post('/get-user-info', (req, res) => {
     hitsToday: user.hits_today,
     maxHits: user.plan === 'free' ? 2 : 'Unlimited',
     expiry: user.expiry,
-    referralCount: user.referralCount || 0
+    referralCount: user.referralCount || 0,
+    isVerified: user.isVerified || false
   });
 });
 
@@ -286,6 +276,70 @@ app.post('/verify-otp', (req, res) => {
 
     otpStore.delete(chatId); // Clear after use
     res.json({ success: true });
+});
+
+// Endpoint to verify channel membership
+app.post('/verify-membership', async (req, res) => {
+    const { chatId } = req.body;
+    if (!chatId) return res.status(400).json({ error: 'Chat ID required' });
+
+    const db = readDB();
+    const user = db.users[chatId];
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    // Channels from config
+    const CHANNELS = config.CHANNELS;
+    const bot = require('./bot');
+
+    try {
+        let allJoined = true;
+        for (const channelBody of CHANNELS) {
+            const channel = channelBody.startsWith('@') ? channelBody : `@${channelBody}`;
+            try {
+                const member = await bot.telegram.getChatMember(channel, chatId);
+                if (['left', 'kicked', 'restricted'].includes(member.status)) {
+                    allJoined = false;
+                    break;
+                }
+            } catch (err) {
+                console.error(`[Verify] Error checking channel ${channel}:`, err.message);
+                allJoined = false; // Default to false if check fails (e.g., bot not admin)
+                break;
+            }
+        }
+
+        if (allJoined) {
+            const wasVerified = user.isVerified;
+            user.isVerified = true;
+            
+            // Crediting the Referrer ONLY ONCE
+            if (!wasVerified && user.referredBy) {
+                const referrer = db.users[user.referredBy];
+                if (referrer) {
+                    referrer.referralCount = (referrer.referralCount || 0) + 1;
+                    console.log(`[Referral] Verification Success: Credited ${user.referredBy}. New Count: ${referrer.referralCount}`);
+                    
+                    // Reward Check: 10 Referrals = Silver Plan for 7 days
+                    if (referrer.referralCount >= 10) {
+                        const expiry = new Date();
+                        expiry.setDate(expiry.getDate() + 7);
+                        referrer.plan = 'silver';
+                        referrer.expiry = expiry.toISOString();
+                        referrer.referralCount -= 10;
+                        notifyPlanActivation(user.referredBy, 'silver', '7 day(s)');
+                    }
+                }
+            }
+            
+            await storage.save(db);
+            res.json({ success: true, message: 'Verification successful!' });
+        } else {
+            res.status(400).json({ error: 'You have not joined all channels yet.' });
+        }
+    } catch (err) {
+        console.error('[Verify] Membership check system error:', err.message);
+        res.status(500).json({ error: 'Verification system error. Try again later.' });
+    }
 });
 
 // Hit Proxy with Limit Checks

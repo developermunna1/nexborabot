@@ -40,24 +40,6 @@ async function isSubscribed(ctx) {
 
 // Start Command
 bot.start(async (ctx) => {
-    const subscribed = await isSubscribed(ctx);
-    
-    if (!subscribed) {
-        const keyboard = {
-            inline_keyboard: [
-                [{ text: "📢 Join BD Hit Log", url: "https://t.me/bdhitlog" }],
-                [{ text: "📢 Join Hitter Lite", url: "https://t.me/hitterlite" }],
-                [{ text: "📢 Join Nexvora Official", url: "https://t.me/Nexvora_Official" }],
-                [{ text: "🔄 Verify Join", callback_data: "verify_join" }]
-            ]
-        };
-
-        return ctx.replyWithHTML(
-            "👋 <b>Welcome!</b>\n\nTo use this bot, you must join our official channels first. Click the buttons below to join, then click <b>Verify Join</b>.",
-            { reply_markup: keyboard }
-        );
-    }
-
     const chat_id = ctx.chat.id;
     const msg = `🔥 <b>Auto Hitter Bot</b>
 ━━━━━━━━━━━━━━━━━━━━
@@ -70,26 +52,14 @@ Send cards (one per line):
 
 Card format:
 4242424242424242|12|26|123
-5500000000000004|06|27|456`;
+5500000000000004|06|27|456
+
+🌐 <b>Tip:</b> Use our <a href="https://t.me/autohittrobot/app">Mini App</a> for a better experience!`;
     
     ctx.replyWithHTML(msg);
 });
 
-// Handle Verify Join Button
-bot.action('verify_join', async (ctx) => {
-    const subscribed = await isSubscribed(ctx);
-    
-    if (subscribed) {
-        await ctx.answerCbQuery("✅ Access Granted! Welcome.");
-        await ctx.deleteMessage().catch(() => {});
-        
-        const chat_id = ctx.from.id;
-        const msg = `🔥 <b>Auto Hitter Bot</b>\n\n🆔 <b>Your Chat ID:</b> <code>${chat_id}</code>\n\nYou can now use all features. Send cards using /co, /inv, or /bill.`;
-        ctx.replyWithHTML(msg);
-    } else {
-        await ctx.answerCbQuery("❌ You haven't joined all channels yet!", { show_alert: true });
-    }
-});
+
 
 // Gate Commands
 bot.command('co', (ctx) => runHit(ctx, 'checkout'));
@@ -97,12 +67,6 @@ bot.command('inv', (ctx) => runHit(ctx, 'invoice'));
 bot.command('bill', (ctx) => runHit(ctx, 'billing'));
 
 async function runHit(ctx, gate) {
-    // Check Membership first
-    const subscribed = await isSubscribed(ctx);
-    if (!subscribed) {
-        return ctx.reply("❌ Access Denied: You must join our channels first. Use /start to see the links.");
-    }
-
     const text = ctx.message.text;
     const parts = text.split(/\s+/);
     

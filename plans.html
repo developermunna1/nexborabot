@@ -342,6 +342,12 @@
                 });
                 const data = await res.json();
                 
+                // Redirect if not verified
+                if (data.isVerified === false) {
+                    window.location.href = '/';
+                    return;
+                }
+                
                 // Reset UI
                 document.querySelectorAll('.plan-card').forEach(c => c.classList.remove('active'));
                 document.querySelectorAll('.plan-btn').forEach(b => {

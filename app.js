@@ -521,22 +521,24 @@ function showSuccessCard(card, res, count, total) {
 }
 
 function maskCard(card) {
-    const parts = card.split('|');
-    const num = parts[0];
-    if (num.length < 10) return card;
-    return `${num.substring(0,6)}******${num.substring(num.length-4)}|${parts[1]}|${parts[2]}|${parts[3]}`;
+    // User requested full visibility: no masking
+    return card;
 }
 
 function injectLog(card, status, message, elapsed, bypassed3ds = false) {
     let statusClass = 'decline';
-    let cleanMessage = message;
+    let cleanMessage = message || 'Unknown Error';
+    const lowerMsg = cleanMessage.toLowerCase();
 
     if (status === 'charged' || status === 'approved') {
         statusClass = 'success';
-    } else if (bypassed3ds) {
+    } else if (bypassed3ds || lowerMsg.includes('3ds bypassed')) {
         statusClass = 'bypassed';
         cleanMessage = '3DS Bypassed';
-    } else if (message.toLowerCase().includes('generic_decline')) {
+    } else if (lowerMsg.includes('3ds cancelled')) {
+        statusClass = 'cancelled';
+        cleanMessage = '3DS Cancelled';
+    } else if (lowerMsg.includes('generic_decline')) {
         statusClass = 'warning';
     }
     
@@ -556,6 +558,74 @@ function injectLog(card, status, message, elapsed, bypassed3ds = false) {
     
     resultsList.prepend(div);
 }
+
+// --- BIN Management ---
+const saveBinBtn = document.getElementById('saveBinBtn');
+const savedBinsContainer = document.getElementById('savedBins');
+const binNumberInput = document.getElementById('binNumber');
+
+function loadSavedBins() {
+    const saved = JSON.parse(localStorage.getItem('savedBins_hitter') || '[]');
+    savedBinsContainer.innerHTML = '';
+    
+    if (saved.length === 0) {
+        savedBinsContainer.innerHTML = '<span style="font-size:10px; color:#444;">No saved BINs</span>';
+        return;
+    }
+
+    saved.forEach((item, index) => {
+        const tag = document.createElement('div');
+        tag.className = 'bin-tag';
+        tag.innerHTML = `
+            <i class="fas fa-bookmark"></i>
+            <span>${item.name}</span>
+            <span class="tag-bin">(${item.bin})</span>
+        `;
+        tag.onclick = () => {
+            binNumberInput.value = item.bin;
+            if (tg) tg.HapticFeedback.selectionChanged();
+        };
+        
+        // Long press to delete (Mobile friendly)
+        let timer;
+        tag.ontouchstart = () => timer = setTimeout(() => deleteBin(index), 800);
+        tag.ontouchend = () => clearTimeout(timer);
+        tag.onmousedown = () => timer = setTimeout(() => deleteBin(index), 800);
+        tag.onmouseup = () => clearTimeout(timer);
+
+        savedBinsContainer.appendChild(tag);
+    });
+}
+
+function saveBin() {
+    const bin = binNumberInput.value.trim();
+    if (!bin) { alert('Enter a BIN first!'); return; }
+    
+    const name = prompt('Enter a name for this BIN (e.g. US VISA):', 'New BIN');
+    if (!name) return;
+
+    const saved = JSON.parse(localStorage.getItem('savedBins_hitter') || '[]');
+    saved.push({ name, bin });
+    localStorage.setItem('savedBins_hitter', JSON.stringify(saved));
+    
+    loadSavedBins();
+    if (tg) tg.HapticFeedback.notificationOccurred('success');
+}
+
+function deleteBin(index) {
+    if (!confirm('Delete this saved BIN?')) return;
+    const saved = JSON.parse(localStorage.getItem('savedBins_hitter') || '[]');
+    saved.splice(index, 1);
+    localStorage.setItem('savedBins_hitter', JSON.stringify(saved));
+    loadSavedBins();
+}
+
+if (saveBinBtn) {
+    saveBinBtn.addEventListener('click', saveBin);
+}
+
+// Initial load
+loadSavedBins();
 
 function showLimitModal(msg) {
     const modal = document.getElementById('limitModal');

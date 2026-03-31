@@ -234,16 +234,6 @@ app.post('/get-user-info', (req, res) => {
   checkPlanExpiry(user, db);
   storage.save(db); // Sync back any changes
 
-  res.json({
-    chatId,
-    plan: user.plan,
-    hitsToday: user.hits_today,
-    maxHits: user.plan === 'free' ? 2 : 'Unlimited',
-    expiry: user.expiry,
-    userRank: 0
-  };
-
-  // Calculate Global Stats & Rank
   const allUsers = Object.entries(db.users)
     .map(([id, u]) => ({ id, total_hits: u.total_hits || 0 }))
     .sort((a, b) => b.total_hits - a.total_hits);

@@ -86,7 +86,9 @@
                                 <th>Chat ID</th>
                                 <th>Plan</th>
                                 <th>Hits Today</th>
+                                <th>Referrals</th>
                                 <th>Expiry</th>
+                                <th>Action</th>
                             </tr>
                         </thead>
                         <tbody id="userList">
@@ -160,13 +162,43 @@
                     <td><code>${id}</code></td>
                     <td><span class="plan-tag ${user.plan}">${user.plan}</span></td>
                     <td>${user.hits_today} / ${user.plan === 'free' ? 2 : '∞'}</td>
+                    <td>
+                        <b>${user.referralCount || 0}</b> 
+                        <button onclick="editReferrals('${id}', ${user.referralCount || 0})" style="width: auto; padding: 2px 6px; font-size: 10px; display: inline-block; margin-left: 5px;">Edit</button>
+                    </td>
                     <td>${expiry}</td>
+                    <td>
+                        <button onclick="quickUpdate('${id}')" style="width: auto; padding: 4px 8px; font-size: 10px; background: #4b5563;">Manage</button>
+                    </td>
                 `;
                 tbody.appendChild(tr);
             });
 
             document.getElementById('statTotalUsers').innerText = total;
             document.getElementById('statPremiumUsers').innerText = premium;
+        }
+
+        async function editReferrals(chatId, current) {
+            const newCount = prompt(`Enter new referral count for ${chatId}:`, current);
+            if (newCount === null || newCount === "") return;
+
+            try {
+                const res = await fetch('/admin/update-referrals', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password, targetChatId: chatId, newCount })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert(data.message);
+                    fetchUsers();
+                }
+            } catch (e) { alert('Failed to update referrals'); }
+        }
+
+        function quickUpdate(chatId) {
+            document.getElementById('directChatId').value = chatId;
+            window.scrollTo({ top: 300, behavior: 'smooth' });
         }
 
         async function generateCode() {

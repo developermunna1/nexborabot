@@ -227,13 +227,15 @@ app.post('/get-user-info', (req, res) => {
       referrer.referralCount = (referrer.referralCount || 0) + 1;
       console.log(`[Referral] User ${chatId} referred by ${referrerId}. New count: ${referrer.referralCount}`);
       
-      // Reward: 10 Referrals = Silver Plan for 7 days
-      if (referrer.referralCount === 10) {
+      // Reward: 10 Referrals = Silver Plan for 7 days (Reset 10)
+      if (referrer.referralCount >= 10) {
         const expiry = new Date();
         expiry.setDate(expiry.getDate() + 7);
         referrer.plan = 'silver';
         referrer.expiry = expiry.toISOString();
-        console.log(`[Referral] User ${referrerId} reached 10 referrals! Upgraded to SILVER.`);
+        referrer.referralCount -= 10; // Reset balance
+        console.log(`[Referral] User ${referrerId} reached 10 referrals! Upgraded to SILVER and reset count.`);
+        notifyPlanActivation(referrerId, 'silver', '7 day(s)');
       }
     }
   }
@@ -547,6 +549,43 @@ app.post('/admin/update-user', async (req, res) => {
   notifyPlanActivation(targetChatId, plan, duration === '7days' ? '7 day(s)' : 'Permanent');
 
   res.json({ success: true, message: `User ${targetChatId} updated to ${plan.toUpperCase()} (${duration})` });
+});
+
+// Update Referrals Endpoint
+app.post('/admin/update-referrals', async (req, res) => {
+  const { password, targetChatId, newCount } = req.body;
+  if (password !== ADMIN_PWD) return res.status(401).json({ error: 'Unauthorized' });
+  if (!targetChatId) return res.status(400).json({ error: 'Chat ID required' });
+
+  const db = readDB();
+  let user = db.users[targetChatId];
+
+  if (!user) {
+    user = {
+      plan: 'free',
+      hits_today: 0,
+      last_hit_date: new Date().toDateString(),
+      expiry: null,
+      referralCount: 0,
+      referredBy: null
+    };
+    db.users[targetChatId] = user;
+  }
+
+  user.referralCount = parseInt(newCount) || 0;
+
+  // Auto Reward if count >= 10
+  if (user.referralCount >= 10 && user.plan === 'free') {
+      const expiry = new Date();
+      expiry.setDate(expiry.getDate() + 7);
+      user.plan = 'silver';
+      user.expiry = expiry.toISOString();
+      user.referralCount -= 10;
+      notifyPlanActivation(targetChatId, 'silver', '7 day(s)');
+  }
+
+  await storage.save(db);
+  res.json({ success: true, message: `User ${targetChatId} referrals updated to ${user.referralCount}` });
 });
 
 // Ping endpoint

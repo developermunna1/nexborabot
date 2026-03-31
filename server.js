@@ -418,7 +418,7 @@ app.post('/hit-proxy/:gate', async (req, res) => {
 });
 
 // Redeem Code Endpoint
-app.post('/redeem-code', (req, res) => {
+app.post('/redeem-code', async (req, res) => {
   const { chatId, code } = req.body;
   if (!chatId || !code) return res.status(400).json({ error: 'Chat ID and Code required' });
 
@@ -443,7 +443,7 @@ app.post('/redeem-code', (req, res) => {
   codeData.status = 'used';
   codeData.usedBy = chatId;
 
-  writeDB(db);
+  await writeDB(db);
 
   res.json({ 
     success: true, 
@@ -456,7 +456,7 @@ app.post('/redeem-code', (req, res) => {
 // --- ADMIN ENDPOINTS ---
 const ADMIN_PWD = config.ADMIN_PWD;
 
-app.post('/admin/generate-code', (req, res) => {
+app.post('/admin/generate-code', async (req, res) => {
   const { password, plan } = req.body;
   if (password !== ADMIN_PWD) return res.status(401).json({ error: 'Unauthorized' });
 
@@ -476,7 +476,7 @@ app.post('/admin/users', (req, res) => {
 });
 
 // DIRECT Activation by Chat ID
-app.post('/admin/update-user', (req, res) => {
+app.post('/admin/update-user', async (req, res) => {
   const { password, targetChatId, plan, duration } = req.body;
   if (password !== ADMIN_PWD) return res.status(401).json({ error: 'Unauthorized' });
   if (!targetChatId || !plan) return res.status(400).json({ error: 'Chat ID and Plan required' });
@@ -532,8 +532,6 @@ function startKeepAlive() {
     }, 14 * 60 * 1000); // 14 minutes (Render sleeps after 15)
   }
 }
-
-const bot = require('./bot');
 
 const bot = require('./bot');
 

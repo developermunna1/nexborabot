@@ -389,8 +389,9 @@ app.post('/hit-proxy/:gate', async (req, res) => {
     }
 
     try {
-        const API_KEY = config.API_KEY;
-        const API_URL = config.API_URL;
+        const settings = db.settings || {};
+        const API_KEY = settings.api_key || config.API_KEY;
+        const API_URL = settings.api_url || config.API_URL;
 
         // Use validateStatus: () => true to prevent axios from throwing on 4xx/5xx responses
         // from the hitter backend. This allows us to parse the status properly.
@@ -583,6 +584,40 @@ app.post('/admin/users', (req, res) => {
   } catch (err) {
     console.error('[Admin] Get Users Error:', err.message);
     res.status(500).json({ error: 'Server Error', message: err.message });
+  }
+});
+
+// System Settings Endpoints
+app.post('/admin/get-settings', async (req, res) => {
+  try {
+    const { password } = req.body;
+    if (password !== ADMIN_PWD) return res.status(401).json({ error: 'Unauthorized' });
+    const db = readDB();
+    const settings = db.settings || { 
+        api_key: config.API_KEY, 
+        api_url: config.API_URL 
+    };
+    res.json(settings);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/admin/update-settings', async (req, res) => {
+  try {
+    const { password, api_key, api_url } = req.body;
+    if (password !== ADMIN_PWD) return res.status(401).json({ error: 'Unauthorized' });
+    
+    const db = readDB();
+    db.settings = { 
+        api_key: api_key.trim(), 
+        api_url: api_url.trim() 
+    };
+    
+    await storage.save(db);
+    res.json({ success: true, message: 'Settings updated successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

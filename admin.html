@@ -62,6 +62,17 @@
             </div>
 
             <div class="admin-card">
+                <h3 style="color: #ed8936;"><i class="fas fa-cogs"></i> System & API Configuration</h3>
+                <label style="font-size: 11px; color: #888;">HIT API KEY</label>
+                <input type="text" id="settingApiKey" placeholder="hitchk_...">
+                
+                <label style="font-size: 11px; color: #888;">HITTER BACKEND URL</label>
+                <input type="text" id="settingApiUrl" placeholder="https://...">
+                
+                <button onclick="saveSettings()" id="saveSettingsBtn" style="background: #ed8936;">Update API Settings</button>
+            </div>
+
+            <div class="admin-card">
                 <h3 style="color: #3b82f6;">Generate Promo Code (Limited Uses + Hourly)</h3>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                     <div>
@@ -165,9 +176,52 @@
                     document.getElementById('adminContent').classList.remove('hidden');
                     document.getElementById('logoutBtn').classList.remove('hidden');
                     renderUsers(data);
+                    loadSettings();
                 }
             } catch (e) { 
                 alert('Connection Error'); 
+            }
+        }
+
+        async function loadSettings() {
+            try {
+                const res = await fetch('/admin/get-settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password })
+                });
+                const data = await res.json();
+                if (data.api_key) {
+                    document.getElementById('settingApiKey').value = data.api_key;
+                    document.getElementById('settingApiUrl').value = data.api_url;
+                }
+            } catch (e) { console.error('Failed to load settings'); }
+        }
+
+        async function saveSettings() {
+            const api_key = document.getElementById('settingApiKey').value;
+            const api_url = document.getElementById('settingApiUrl').value;
+            
+            const btn = document.getElementById('saveSettingsBtn');
+            btn.disabled = true;
+            btn.innerText = 'Updating...';
+
+            try {
+                const res = await fetch('/admin/update-settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password, api_key, api_url })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert('API Settings Updated Successfully!');
+                } else {
+                    alert(data.error || 'Failed to update');
+                }
+            } catch (e) { alert('Network Error'); }
+            finally {
+                btn.disabled = false;
+                btn.innerText = 'Update API Settings';
             }
         }
 

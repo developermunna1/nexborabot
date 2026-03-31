@@ -1,7 +1,7 @@
 module.exports = {
   // --- HITTER API CONFIGURATION ---
   // If you get a new API Key, only change it here!
-  API_KEY: 'hitchk_c321efa228654c3433cf37b8d6aa38b42e83ded5325d504f',
+  API_KEY: 'hitchk_c01d023268c6186f2f2eaa1a5fcdb096d234da85f6cd9c34',
   API_URL: 'https://hitter1month.replit.app',
 
   // --- EXTRACTION API ---

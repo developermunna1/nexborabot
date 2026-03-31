@@ -476,11 +476,11 @@ function processHitResult(card, res, elapsed, count, total) {
     // Improved message extraction
     let message = res.message || res.error;
     if (!message) {
-        if (res.status) {
+        if (res.status && res.status !== 'unknown') {
             message = `Status: ${res.status}`;
         } else {
-            // Server should now provide status, but if it doesn't:
-            message = 'Connection error (No response body from hitter)';
+            // If even message is missing, show the raw body or a descriptive error
+            message = res.raw ? `Raw Error: ${JSON.stringify(res.raw)}` : 'Connection error: Backend returned an empty result';
         }
     }
     

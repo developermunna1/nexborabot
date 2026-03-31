@@ -6,6 +6,7 @@ const PORT = process.env.PORT || 3000;
 
 const axios = require('axios');
 const config = require('./config');
+const storage = require('./storage');
 
 // Serve static files from the current directory
 const fs = require('fs');
@@ -20,27 +21,11 @@ const DATA_DIR = fs.existsSync('/data') ? '/data' : __dirname;
 const DB_FILE = path.join(DATA_DIR, 'database.json');
 
 function readDB() {
-  try {
-    if (!fs.existsSync(DB_FILE)) {
-      fs.writeFileSync(DB_FILE, JSON.stringify({ users: {}, redeem_codes: {} }, null, 2));
-    }
-    const data = fs.readFileSync(DB_FILE, 'utf8');
-    return JSON.parse(data);
-  } catch (err) {
-    console.error('Error reading DB:', err);
-    // Return empty if file is corrupt to prevent crash
-    return { users: {}, redeem_codes: {} };
-  }
+  return storage.getDB();
 }
 
-function writeDB(data) {
-  try {
-    // Atomic-like write: first write to temp, then rename (if possible) 
-    // for simplicity, just direct write here for now
-    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
-  } catch (err) {
-    console.error('Error writing DB:', err);
-  }
+async function writeDB(data) {
+  return await storage.save(data);
 }
 
 // Daily Limit Reset Logic
@@ -63,7 +48,7 @@ function checkPlanExpiry(user, db) {
       console.log(`[Expiry] Plan expired for user. Resetting to FREE.`);
       user.plan = 'free';
       user.expiry = null;
-      if (db) writeDB(db); // Persist change immediately
+      if (db) storage.save(db); // Async fire-and-forget for background expiry
       return true;
     }
   }
@@ -255,7 +240,7 @@ app.post('/get-user-info', (req, res) => {
 
   checkDailyReset(user);
   checkPlanExpiry(user, db);
-  writeDB(db);
+  storage.save(db); // Sync back any changes
 
   res.json({
     chatId,
@@ -408,7 +393,7 @@ app.post('/hit-proxy/:gate', async (req, res) => {
             if (user.plan === 'free') {
                 user.hits_today++;
             }
-            writeDB(db);
+            await storage.save(db);
             console.log(`[Limit] SUCCESS for ${chatId} (${user.plan}). Hits today: ${user.hits_today}`);
             sendHitNotification(result, gate, user.plan, userName, site, amount);
         } else {
@@ -478,7 +463,7 @@ app.post('/admin/generate-code', (req, res) => {
   const code = 'HIT-' + Math.random().toString(36).substring(2, 10).toUpperCase();
   const db = readDB();
   db.redeem_codes[code] = { plan, status: 'active', createdAt: new Date().toISOString() };
-  writeDB(db);
+  await storage.save(db);
 
   res.json({ code, plan });
 });
@@ -519,7 +504,7 @@ app.post('/admin/update-user', (req, res) => {
     user.expiry = null; // No expiry (continues until removed)
   }
 
-  writeDB(db);
+  await storage.save(db);
   res.json({ success: true, message: `User ${targetChatId} updated to ${plan.toUpperCase()} (${duration})` });
 });
 
@@ -550,22 +535,31 @@ function startKeepAlive() {
 
 const bot = require('./bot');
 
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-  console.log(`Open http://localhost:${PORT} to view your app`);
-  startKeepAlive();
-  
-  // Launch Bot
-  bot.launch()
-    .then(() => {
-      console.log('✅ Telegram Bot is active!');
-    })
-    .catch(err => {
-      console.error('❌ Telegram Bot Error:', err.message);
-      console.log('⚠️ Server will continue running without the bot.');
-    });
+const bot = require('./bot');
 
-  // Enable graceful stop
-  process.once('SIGINT', () => bot.stop('SIGINT'));
-  process.once('SIGTERM', () => bot.stop('SIGTERM'));
-});
+async function startServer() {
+  // Sync DB on Startup
+  await storage.init();
+  
+  app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+    console.log(`Open http://localhost:${PORT} to view your app`);
+    startKeepAlive();
+    
+    // Launch Bot
+    bot.launch()
+      .then(() => {
+        console.log('✅ Telegram Bot is active!');
+      })
+      .catch(err => {
+        console.error('❌ Telegram Bot Error:', err.message);
+        console.log('⚠️ Server will continue running without the bot.');
+      });
+  
+    // Enable graceful stop
+    process.once('SIGINT', () => bot.stop('SIGINT'));
+    process.once('SIGTERM', () => bot.stop('SIGTERM'));
+  });
+}
+
+startServer();

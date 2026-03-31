@@ -2,6 +2,7 @@ const { Telegraf } = require('telegraf');
 const axios = require('axios');
 
 const config = require('./config');
+const storage = require('./storage');
 
 const API_URL = config.API_URL;
 const API_KEY = config.API_KEY;
@@ -51,11 +52,41 @@ async function runHit(ctx, gate) {
     }
 
     const uid = ctx.from.id;
+    const db = storage.getDB();
+    let user = db.users[uid];
+
+    // Auto-register if not exists
+    if (!user) {
+        user = {
+            plan: 'free',
+            hits_today: 0,
+            last_hit_date: new Date().toDateString(),
+            expiry: null,
+            referralCount: 0,
+            referredBy: null
+        };
+        db.users[uid] = user;
+        await storage.save(db);
+    }
+
+    // Reset hits if it's a new day
+    const today = new Date().toDateString();
+    if (user.last_hit_date !== today) {
+        user.hits_today = 0;
+        user.last_hit_date = today;
+        await storage.save(db);
+    }
+
+    // Enforce Limit
+    if (user.plan === 'free' && user.hits_today >= 2) {
+        return ctx.reply("❌ Limit Reached: You have used your 2 free hits for today. Please upgrade to Silver or Gold for unlimited access!");
+    }
+
     const totalCards = cards.length;
     let waitMsg;
     
     try {
-        waitMsg = await ctx.reply(`⏳ Checking ${totalCards} card(s)... (0/${totalCards})`);
+        waitMsg = await ctx.reply(`⏳ Checking ${totalCards} card(s)... (0/${totalCards})\n👤 Plan: ${user.plan.toUpperCase()} | Hits Left: ${user.plan === 'free' ? (2 - user.hits_today) : 'Unlimited'}`);
     } catch (err) {
         return console.error('Failed to send initial message', err);
     }
@@ -89,10 +120,24 @@ async function runHit(ctx, gate) {
             if (resp.session_cache) sessionCache.set(uid, resp.session_cache);
 
             const status = resp.status || 'error';
-            if (['charged', 'approved'].includes(status)) chargedCount++;
-            else if (status === 'live') liveCount++;
+            if (['charged', 'approved'].includes(status)) {
+                chargedCount++;
+                // Increment hits in DB if success
+                if (user.plan === 'free') {
+                    user.hits_today++;
+                    await storage.save(db);
+                }
+            } else if (status === 'live') {
+                liveCount++;
+            }
 
             results.push({ card, status, message: resp.message || 'Unknown' });
+
+            // Stop if limit reached after this hit
+            if (user.plan === 'free' && user.hits_today >= 2) {
+                results.push({ card: '---', status: 'limit', message: 'Daily limit reached' });
+                break;
+            }
         } catch (e) {
             results.push({ card, status: 'error', message: e.message });
         }

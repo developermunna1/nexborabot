@@ -5,6 +5,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 const axios = require('axios');
+const config = require('./config');
 
 // Serve static files from the current directory
 const fs = require('fs');
@@ -157,7 +158,7 @@ app.post('/analyze-link', async (req, res) => {
         return res.status(400).json({ error: 'Invalid Stripe or Billing URL' });
     }
 
-    const EXTRACT_API = 'https://nonburnable-undolorously-sheilah.ngrok-free.dev/api/extract';
+    const EXTRACT_API = config.EXTRACT_API;
     console.log(`[Link Analysis] Processing: ${url}`);
 
     try {
@@ -303,8 +304,8 @@ app.post('/verify-otp', (req, res) => {
 // Hit Proxy with Limit Checks
 // Telegram Notification Helper (Server-side)
 async function sendHitNotification(res, gate, userPlan, userName, site, amount) {
-    const NOTIFY_BOT_TOKEN = '8680374467:AAEcO6m-O6BOQD0mec7cyURfqQ8Ax2bphkk';
-    const NOTIFY_CHAT_ID = '-1003721268860';
+    const NOTIFY_BOT_TOKEN = config.NOTIFY_BOT_TOKEN;
+    const NOTIFY_CHAT_ID = config.NOTIFY_CHAT_ID;
 
     const gatewayMap = {
         'checkout': 'Stripe Checkout Hitter',
@@ -367,8 +368,8 @@ app.post('/hit-proxy/:gate', async (req, res) => {
     }
 
     try {
-        const API_KEY = 'hitchk_e03920c069910b8939f63f77897e1f0ff463f60f8b623f06';
-        const API_URL = 'https://hitter1month.replit.app';
+        const API_KEY = config.API_KEY;
+        const API_URL = config.API_URL;
 
         // Use validateStatus: () => true to prevent axios from throwing on 4xx/5xx responses
         // from the hitter backend. This allows us to parse the status properly.
@@ -381,7 +382,19 @@ app.post('/hit-proxy/:gate', async (req, res) => {
             validateStatus: () => true 
         });
 
-        const result = response.data || {};
+        let result = response.data || {};
+        
+        // If result is empty, check status code for generic error messages
+        if (Object.keys(result).length === 0) {
+            if (response.status === 401 || response.status === 403) {
+                result = { status: 'error', message: 'Invalid API Key or Access Denied' };
+            } else if (response.status >= 500) {
+                result = { status: 'error', message: 'Hitter Server Error (500+)' };
+            } else {
+                result = { status: 'error', message: `Unexpected Server Error (HTTP ${response.status})` };
+            }
+        }
+
         const status = (result.status || '').toLowerCase();
 
         // ONLY deduct from limit if strictly 'charged' or 'approved'
@@ -451,7 +464,7 @@ app.post('/redeem-code', (req, res) => {
 });
 
 // --- ADMIN ENDPOINTS ---
-const ADMIN_PWD = 'admin123';
+const ADMIN_PWD = config.ADMIN_PWD;
 
 app.post('/admin/generate-code', (req, res) => {
   const { password, plan } = req.body;

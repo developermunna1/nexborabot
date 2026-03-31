@@ -1,9 +1,11 @@
 const { Telegraf } = require('telegraf');
 const axios = require('axios');
 
-const API_URL = "https://hitter1month.replit.app";
-const API_KEY = "hitchk_c321efa228654c3433cf37b8d6aa38b42e83ded5325d504f";
-const BOT_TOKEN = "8680374467:AAEcO6m-O6BOQD0mec7cyURfqQ8Ax2bphkk";
+const config = require('./config');
+
+const API_URL = config.API_URL;
+const API_KEY = config.API_KEY;
+const BOT_TOKEN = config.NOTIFY_BOT_TOKEN;
 
 const bot = new Telegraf(BOT_TOKEN);
 const sessionCache = new Map();

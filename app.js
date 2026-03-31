@@ -14,10 +14,7 @@ let currentOtp = null;
 let currentChatId = null;
 let analyzedData = { site: null, amount: null };
 
-const API_KEY = 'hitchk_af1343a64a30cdec968d3c3228c7cf023ab5948e453183d9';
-const API_URL = 'https://hitter1month.replit.app';
-const NOTIFY_BOT_TOKEN = '8680374467:AAEcO6m-O6BOQD0mec7cyURfqQ8Ax2bphkk';
-const NOTIFY_CHAT_ID = '-1003721268860';
+// (Removed redundant API configs - handled by server proxy)
 
 let userPlan = 'free';
 let remainingHits = 0;
@@ -475,7 +472,17 @@ hitBtn.addEventListener('click', async () => {
 
 function processHitResult(card, res, elapsed, count, total) {
     const status = res.status || 'dead';
-    const message = res.message || res.error || (res.status ? `Status: ${res.status}` : 'No response message');
+    
+    // Improved message extraction
+    let message = res.message || res.error;
+    if (!message) {
+        if (res.status) {
+            message = `Status: ${res.status}`;
+        } else {
+            // Server should now provide status, but if it doesn't:
+            message = 'Connection error (No response body from hitter)';
+        }
+    }
     
     stats.total++;
     

@@ -11,13 +11,58 @@ const BOT_TOKEN = config.NOTIFY_BOT_TOKEN;
 const bot = new Telegraf(BOT_TOKEN);
 const sessionCache = new Map();
 
+// --- MEMBERSHIP CHECK LOGIC ---
+const CHANNELS = config.CHANNELS; // ['@bdhitlog', '@hitterlite', '@Nexvora_Official']
+
+async function isSubscribed(ctx) {
+    const userId = ctx.from.id;
+    
+    // Admins or special users can bypass if needed (optional)
+    // if (userId == SOME_ADMIN_ID) return true;
+
+    try {
+        for (const channelBody of CHANNELS) {
+            // Remove @ for API call
+            const channel = channelBody.startsWith('@') ? channelBody : `@${channelBody}`;
+            const member = await ctx.telegram.getChatMember(channel, userId);
+            
+            if (['left', 'kicked', 'restricted'].includes(member.status)) {
+                return false;
+            }
+        }
+        return true;
+    } catch (err) {
+        console.error('[Bot] Membership check error:', err.message);
+        // If bot is not admin in channel, this fails. Assume not joined for safety.
+        return false;
+    }
+}
+
 // Start Command
-bot.start((ctx) => {
+bot.start(async (ctx) => {
+    const subscribed = await isSubscribed(ctx);
+    
+    if (!subscribed) {
+        const keyboard = {
+            inline_keyboard: [
+                [{ text: "📢 Join BD Hit Log", url: "https://t.me/bdhitlog" }],
+                [{ text: "📢 Join Hitter Lite", url: "https://t.me/hitterlite" }],
+                [{ text: "📢 Join Nexvora Official", url: "https://t.me/Nexvora_Official" }],
+                [{ text: "🔄 Verify Join", callback_data: "verify_join" }]
+            ]
+        };
+
+        return ctx.replyWithHTML(
+            "👋 <b>Welcome!</b>\n\nTo use this bot, you must join our official channels first. Click the buttons below to join, then click <b>Verify Join</b>.",
+            { reply_markup: keyboard }
+        );
+    }
+
     const chat_id = ctx.chat.id;
     const msg = `🔥 <b>Auto Hitter Bot</b>
-
+━━━━━━━━━━━━━━━━━━━━
 🆔 <b>Your Chat ID:</b> <code>${chat_id}</code> (Click to copy)
-
+━━━━━━━━━━━━━━━━━━━━
 Send cards (one per line):
 /co [url] [cards]
 /inv [url] [cards]
@@ -30,12 +75,34 @@ Card format:
     ctx.replyWithHTML(msg);
 });
 
+// Handle Verify Join Button
+bot.action('verify_join', async (ctx) => {
+    const subscribed = await isSubscribed(ctx);
+    
+    if (subscribed) {
+        await ctx.answerCbQuery("✅ Access Granted! Welcome.");
+        await ctx.deleteMessage().catch(() => {});
+        
+        const chat_id = ctx.from.id;
+        const msg = `🔥 <b>Auto Hitter Bot</b>\n\n🆔 <b>Your Chat ID:</b> <code>${chat_id}</code>\n\nYou can now use all features. Send cards using /co, /inv, or /bill.`;
+        ctx.replyWithHTML(msg);
+    } else {
+        await ctx.answerCbQuery("❌ You haven't joined all channels yet!", { show_alert: true });
+    }
+});
+
 // Gate Commands
 bot.command('co', (ctx) => runHit(ctx, 'checkout'));
 bot.command('inv', (ctx) => runHit(ctx, 'invoice'));
 bot.command('bill', (ctx) => runHit(ctx, 'billing'));
 
 async function runHit(ctx, gate) {
+    // Check Membership first
+    const subscribed = await isSubscribed(ctx);
+    if (!subscribed) {
+        return ctx.reply("❌ Access Denied: You must join our channels first. Use /start to see the links.");
+    }
+
     const text = ctx.message.text;
     const parts = text.split(/\s+/);
     

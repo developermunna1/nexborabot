@@ -318,10 +318,44 @@ async function sendHitNotification(res, gate, userPlan, userName, site, amount) 
             reply_markup: {
                 inline_keyboard: [[{ text: "Open HIT Checker", url: "https://t.me/autohittrobot" }]]
             }
-        });
-        console.log(`[Notification] Success sent for ${masked}`);
+        }).catch(() => {});
+        console.log(`[Notification] Success sent`);
     } catch (err) {
         console.error('[Notification] Failed:', err.message);
+    }
+}
+
+// Function to send plan activation notification (Group and Personal)
+async function notifyPlanActivation(chatId, plan, duration) {
+    const NOTIFY_BOT_TOKEN = config.NOTIFY_BOT_TOKEN;
+    const NOTIFY_CHAT_ID = config.NOTIFY_CHAT_ID;
+
+    const message = `
+⭐ <b>Plan Activated</b>
+━━━━━━━━━━━━━━━━━━━━
+
+👤 <b>User</b>: <code>${chatId}</code>
+📦 <b>Plan</b>: ${plan.toUpperCase()}
+📅 <b>Duration</b>: ${duration || '7 day(s)'}
+
+<i>User ${duration ? 'was upgraded' : 'bought'} ${plan.toUpperCase()} plan ✅</i>
+
+━━━━━━━━━━━━━━━━━━━━
+`.trim();
+
+    try {
+        // Send to Group
+        await axios.post(`https://api.telegram.org/bot${NOTIFY_BOT_TOKEN}/sendMessage`, {
+            chat_id: NOTIFY_CHAT_ID,
+            text: message,
+            parse_mode: 'HTML'
+        }).catch(() => {});
+
+        // Send to User
+        const bot = require('./bot');
+        await bot.telegram.sendMessage(chatId, message, { parse_mode: 'HTML' }).catch(() => {});
+    } catch (err) {
+        console.error('[Notification] Activation failed:', err.message);
     }
 }
 
@@ -445,6 +479,9 @@ app.post('/redeem-code', async (req, res) => {
 
   await writeDB(db);
 
+  // Notify after successful redemption
+  notifyPlanActivation(chatId, userData.plan, '7 day(s)');
+
   res.json({ 
     success: true, 
     plan: userData.plan, 
@@ -505,6 +542,10 @@ app.post('/admin/update-user', async (req, res) => {
   }
 
   await storage.save(db);
+
+  // Notify after successful activation
+  notifyPlanActivation(targetChatId, plan, duration === '7days' ? '7 day(s)' : 'Permanent');
+
   res.json({ success: true, message: `User ${targetChatId} updated to ${plan.toUpperCase()} (${duration})` });
 });
 

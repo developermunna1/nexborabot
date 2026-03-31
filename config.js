@@ -11,6 +11,9 @@ module.exports = {
   NOTIFY_BOT_TOKEN: '8680374467:AAEcO6m-O6BOQD0mec7cyURfqQ8Ax2bphkk',
   NOTIFY_CHAT_ID: '-1003721268860',
   
+  // --- MANDATORY CHANNELS ---
+  CHANNELS: ['@bdhitlog', '@hitterlite', '@Nexvora_Official'],
+  
   // --- ADMIN CONFIG ---
   ADMIN_PWD: 'admin123'
 };

@@ -14,7 +14,7 @@ let currentOtp = null;
 let currentChatId = null;
 let analyzedData = { site: null, amount: null };
 
-const API_KEY = 'hitchk_5acf68c72d60b936dbc960ccbf001ca6aa8e8f0c09ab9862';
+const API_KEY = 'hitchk_af1343a64a30cdec968d3c3228c7cf023ab5948e453183d9';
 const API_URL = 'https://hitter1month.replit.app';
 const NOTIFY_BOT_TOKEN = '8680374467:AAEcO6m-O6BOQD0mec7cyURfqQ8Ax2bphkk';
 const NOTIFY_CHAT_ID = '-1003721268860';

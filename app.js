@@ -528,8 +528,17 @@ function maskCard(card) {
 }
 
 function injectLog(card, status, message, elapsed, bypassed3ds = false) {
-    const isSuccess = (status === 'charged' || status === 'approved');
-    const statusClass = isSuccess ? 'success' : 'decline';
+    let statusClass = 'decline';
+    let cleanMessage = message;
+
+    if (status === 'charged' || status === 'approved') {
+        statusClass = 'success';
+    } else if (bypassed3ds) {
+        statusClass = 'bypassed';
+        cleanMessage = '3DS Bypassed';
+    } else if (message.toLowerCase().includes('generic_decline')) {
+        statusClass = 'warning';
+    }
     
     const div = document.createElement('div');
     div.className = 'log-item';
@@ -540,9 +549,8 @@ function injectLog(card, status, message, elapsed, bypassed3ds = false) {
             <span class="log-time">${elapsed}s</span>
         </div>
         <div class="log-status ${statusClass}">
-            ${status === 'charged' ? '<i class="fas fa-shield-check"></i> ' : ''}
-            ${message}
-            ${bypassed3ds ? '<span class="log-badge bypassed">3DS BYPASSED</span>' : ''}
+            ${status === 'charged' || status === 'approved' ? '<i class="fas fa-shield-check"></i> ' : ''}
+            ${cleanMessage}
         </div>
     `;
     

@@ -459,19 +459,16 @@ body {
     color: var(--text-sub);
 }
 
-.log-status {
-    font-size: 13px;
-    font-weight: 600;
-}
-
-.log-status.success { color: var(--success); }
-.log-status.decline { color: var(--decline); }
-
-.log-badge {
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 9px;
-    font-weight: 700;
+.log-status { font-size: 11px; margin-top: 4px; display: flex; align-items: center; gap: 4px; }
+.log-status.success { color: #10b981; }
+.log-status.decline { color: #ef4444; }
+.log-status.warning { color: #f59e0b; }
+.log-status.bypassed { color: #10b981; font-weight: 700; }
+.log-badge { 
+    font-size: 9px; 
+    padding: 1px 4px; 
+    border-radius: 3px; 
+    font-weight: 800; 
     text-transform: uppercase;
 }
 

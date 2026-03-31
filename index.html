@@ -146,13 +146,40 @@
                 document.getElementById('homeReferralText').innerText = `${refCount} / 10`;
                 document.getElementById('homeProgressBar').style.width = `${Math.min(refCount, 10) * 10}%`;
 
-                // Handle Verification Overlay
-                if (data.isVerified === false) {
-                    document.getElementById('verifyOverlay').classList.remove('hidden');
-                    document.getElementById('app').classList.add('blur');
-                } else {
+                // Handle Verification Logic
+                if (data.isVerified === true) {
+                    // Already verified once - skip everything
                     document.getElementById('verifyOverlay').classList.add('hidden');
                     document.getElementById('app').classList.remove('blur');
+                } else {
+                    // Not verified - show 2-sec auto-check
+                    const loader = document.getElementById('autoCheckLoader');
+                    loader.classList.remove('hidden');
+                    
+                    setTimeout(async () => {
+                        try {
+                            const verifyRes = await fetch('/verify-membership', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ chatId: currentChatId })
+                            });
+                            
+                            loader.classList.add('hidden');
+                            
+                            if (verifyRes.ok) {
+                                // Already joined! Unlock app.
+                                document.getElementById('app').classList.remove('blur');
+                            } else {
+                                // Not joined - show the Join page
+                                document.getElementById('verifyOverlay').classList.remove('hidden');
+                                document.getElementById('app').classList.add('blur');
+                            }
+                        } catch (err) {
+                            loader.classList.add('hidden');
+                            document.getElementById('verifyOverlay').classList.remove('hidden');
+                            document.getElementById('app').classList.add('blur');
+                        }
+                    }, 2000); // 2 second delay
                 }
 
                 document.getElementById('loginOverlay').classList.add('hidden');
@@ -251,6 +278,13 @@
             }
         }
     </script>
+
+    <!-- Auto-Check Loader -->
+    <div id="autoCheckLoader" class="auto-check-overlay hidden">
+        <div class="loader-circle"></div>
+        <div style="font-weight: 700; color: #3b82f6; font-size: 18px;">Checking Membership...</div>
+        <div style="font-size: 13px; color: #666;">Please wait, scanning channels</div>
+    </div>
 
     <!-- Verification Overlay -->
     <div id="verifyOverlay" class="verify-overlay hidden">

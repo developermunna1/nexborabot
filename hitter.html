@@ -9,12 +9,22 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script>
-        // Synchronous Auth & UI Guard (Prevents Flickering)
+        // Synchronous Auth & Theme Guard (Prevents Flickering)
         (function() {
             const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+            const savedTheme = localStorage.getItem('appTheme') || 'dark';
+            if (savedTheme === 'light') document.body.classList.add('light-mode');
+            
             window.addEventListener('DOMContentLoaded', () => {
                 const loginOverlay = document.getElementById('loginOverlay');
                 const app = document.getElementById('app');
+                
+                // Set initial icon
+                const themeBtn = document.getElementById('themeToggleBtn');
+                if (themeBtn) {
+                    themeBtn.innerHTML = savedTheme === 'light' ? '<i class="fas fa-moon"></i>' : '<i class="fas fa-sun"></i>';
+                }
+
                 if (isLoggedIn) {
                     loginOverlay.classList.add('hidden');
                     app.classList.remove('blur');
@@ -24,6 +34,16 @@
                 }
             });
         })();
+
+        function toggleTheme() {
+            const body = document.body;
+            const btn = document.getElementById('themeToggleBtn');
+            const isLight = body.classList.toggle('light-mode');
+            const newTheme = isLight ? 'light' : 'dark';
+            
+            localStorage.setItem('appTheme', newTheme);
+            btn.innerHTML = isLight ? '<i class="fas fa-moon"></i>' : '<i class="fas fa-sun"></i>';
+        }
     </script>
 </head>
 <body>
@@ -79,7 +99,10 @@
                 <i class="fas fa-arrow-left nav-back" onclick="window.location.href='/'"></i>
                 <h1>Stripe Auto Hitter</h1>
             </div>
-            <div class="header-right">
+            <div class="header-right" style="display: flex; align-items: center; gap: 12px;">
+                <div id="themeToggleBtn" class="theme-toggle" onclick="toggleTheme()">
+                    <i class="fas fa-sun"></i>
+                </div>
                 <div class="plan-status-mini" onclick="window.location.href='plans.html'">
                     <i class="fas fa-crown"></i>
                     <span id="planStatusText">Loading...</span>

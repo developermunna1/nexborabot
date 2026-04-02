@@ -7,6 +7,7 @@ const PORT = process.env.PORT || 3000;
 const axios = require('axios');
 const config = require('./config');
 const storage = require('./storage');
+const membership = require('./membership'); // New robust check
 
 // Serve static files from the current directory
 const fs = require('fs');
@@ -322,33 +323,11 @@ app.post('/verify-membership', async (req, res) => {
 
     // Channels from DB or Config
     const settings = db.settings || {};
-    const CHANNELS = settings.channels || config.CHANNELS;
     const bot = require('./bot');
-
+    
     try {
-        let allJoined = true;
-        for (const channelBody of CHANNELS) {
-            // Support both handles starting with @ and numeric IDs starting with -
-            let channel = channelBody;
-            if (typeof channel === 'string' && !channel.startsWith('-') && !channel.startsWith('@')) {
-                channel = `@${channel}`;
-            }
-            
-            try {
-                const member = await bot.telegram.getChatMember(channel, chatId);
-                if (['left', 'kicked', 'restricted'].includes(member.status)) {
-                    allJoined = false;
-                    break;
-                }
-            } catch (err) {
-                console.error(`[Verify] Error checking channel ${channel}:`, err.message);
-                // If it's a "chat not found" error, we might want to skip it or mark as failed
-                // For safety, mark as joined ONLY if the check succeeds and status is valid
-                allJoined = false;
-                break;
-            }
-        }
-
+        const allJoined = await membership.checkMembership(bot, chatId);
+        
         if (allJoined) {
             const wasVerified = user.isVerified;
             user.isVerified = true;

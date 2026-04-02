@@ -21,24 +21,56 @@
         .progress-bar-large { background: #0f111a; height: 15px; border-radius: 10px; overflow: hidden; }
         .bar-inner { background: #3b82f6; height: 100%; width: 0%; transition: width 1s ease-out; }
 
-        .link-section { background: #1a1c23; border: 1px solid #2d2f39; border-radius: 15px; padding: 20px; }
-        .link-box { background: #0f111a; border: 1px solid #2d2f39; padding: 12px; border-radius: 8px; font-size: 12px; font-family: monospace; word-break: break-all; margin: 15px 0; color: #3b82f6; }
-        .share-btn { background: #3b82f6; color: white; border: none; padding: 12px; border-radius: 8px; width: 100%; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .link-section { background: var(--bg-card); border: 1px solid var(--border); border-radius: 15px; padding: 20px; box-shadow: var(--shadow); }
+        .link-box { background: var(--bg-tab); border: 1px solid var(--border); padding: 12px; border-radius: 8px; font-size: 12px; font-family: monospace; word-break: break-all; margin: 15px 0; color: var(--accent); }
+        .share-btn { background: var(--accent); color: white; border: none; padding: 12px; border-radius: 8px; width: 100%; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4); }
+        
+        body.light-mode .ref-container { color: var(--text-main); }
+        body.light-mode .progress-section { background: var(--bg-card); border-color: var(--border); }
+        body.light-mode .progress-count { color: var(--accent); }
+        body.light-mode .bar-inner { background: var(--accent); }
     </style>
     <script>
-        // Synchronous Auth Guard (Prevents Flickering)
+        // Synchronous Auth & Theme Guard (Prevents Flickering)
         (function() {
+            const savedTheme = localStorage.getItem('appTheme') || 'dark';
+            if (savedTheme === 'light') document.body.classList.add('light-mode');
+            
             if (!localStorage.getItem('userChatId')) {
                 window.location.href = '/';
             }
+
+            window.addEventListener('DOMContentLoaded', () => {
+                // Set initial icon
+                const themeBtn = document.getElementById('themeToggleBtn');
+                if (themeBtn) {
+                    const isLight = document.body.classList.contains('light-mode');
+                    themeBtn.innerHTML = isLight ? '<i class="fas fa-moon"></i>' : '<i class="fas fa-sun"></i>';
+                }
+            });
         })();
+
+        function toggleTheme() {
+            const body = document.body;
+            const btn = document.getElementById('themeToggleBtn');
+            const isLight = body.classList.toggle('light-mode');
+            const newTheme = isLight ? 'light' : 'dark';
+            
+            localStorage.setItem('appTheme', newTheme);
+            btn.innerHTML = isLight ? '<i class="fas fa-moon"></i>' : '<i class="fas fa-sun"></i>';
+        }
     </script>
 </head>
 <body>
     <div class="app-container">
-        <div class="back-nav" onclick="window.location.href='/'">
-            <i class="fas fa-arrow-left"></i>
-            <span>Referral Program</span>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div class="back-nav" style="margin-bottom: 0;" onclick="window.location.href='/'">
+                <i class="fas fa-arrow-left"></i>
+                <span>Referral Program</span>
+            </div>
+            <div id="themeToggleBtn" class="theme-toggle" onclick="toggleTheme()">
+                <i class="fas fa-sun"></i>
+            </div>
         </div>
 
         <div class="ref-container">

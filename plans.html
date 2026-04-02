@@ -199,19 +199,46 @@
         }
     </style>
     <script>
-        // Synchronous Auth Guard (Prevents Flickering)
+        // Synchronous Auth & Theme Guard (Prevents Flickering)
         (function() {
+            const savedTheme = localStorage.getItem('appTheme') || 'dark';
+            if (savedTheme === 'light') document.body.classList.add('light-mode');
+            
             if (!localStorage.getItem('userChatId')) {
                 window.location.href = '/';
             }
+
+            window.addEventListener('DOMContentLoaded', () => {
+                // Set initial icon
+                const themeBtn = document.getElementById('themeToggleBtn');
+                if (themeBtn) {
+                    const isLight = document.body.classList.contains('light-mode');
+                    themeBtn.innerHTML = isLight ? '<i class="fas fa-moon"></i>' : '<i class="fas fa-sun"></i>';
+                }
+            });
         })();
+
+        function toggleTheme() {
+            const body = document.body;
+            const btn = document.getElementById('themeToggleBtn');
+            const isLight = body.classList.toggle('light-mode');
+            const newTheme = isLight ? 'light' : 'dark';
+            
+            localStorage.setItem('appTheme', newTheme);
+            btn.innerHTML = isLight ? '<i class="fas fa-moon"></i>' : '<i class="fas fa-sun"></i>';
+        }
     </script>
 </head>
 <body>
     <div class="app-container">
-        <div class="back-nav" onclick="window.location.href='/'">
-            <i class="fas fa-arrow-left"></i>
-            <span>Plans & Pricing</span>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div class="back-nav" style="margin-bottom: 0;" onclick="window.location.href='/'">
+                <i class="fas fa-arrow-left"></i>
+                <span>Plans & Pricing</span>
+            </div>
+            <div id="themeToggleBtn" class="theme-toggle" onclick="toggleTheme()">
+                <i class="fas fa-sun"></i>
+            </div>
         </div>
 
         <div class="plans-container">

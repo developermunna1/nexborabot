@@ -1,10 +1,11 @@
 :root {
+    /* Dark Theme (Default) */
     --bg-main: #0A0F14;
     --bg-card: #151C21;
     --bg-tab: #1E272E;
     --primary: #2980B9;
     --secondary: #34495E;
-    --accent: #3498DB;
+    --accent: #10B981; /* Default to a nice green */
     --success: #2ECC71;
     --success-bg: rgba(46, 204, 113, 0.1);
     --decline: #E74C3C;
@@ -12,8 +13,22 @@
     --text-main: #EFEFEF;
     --text-sub: #8E9BA7;
     --border: #1E272E;
-    --radius: 12px;
-    --transition: all 0.3s ease;
+    --shadow: 0 4px 15px rgba(0,0,0,0.3);
+    --radius: 16px; /* Slightly rounder for premium feel */
+    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+body.light-mode {
+    --bg-main: #F8FAF9;
+    --bg-card: #FFFFFF;
+    --bg-tab: #EDF2F0;
+    --primary: #10B981;
+    --secondary: #E2E8F0;
+    --accent: #10B981;
+    --text-main: #1A202C;
+    --text-sub: #718096;
+    --border: #E2E8F0;
+    --shadow: 0 10px 25px rgba(16, 185, 129, 0.08);
 }
 
 * {
@@ -257,11 +272,15 @@ body {
     width: 100%;
     height: 100%;
     background: rgba(10, 15, 20, 0.95);
-    z-index: 9999;
+    z-index: 10000;
     display: flex;
     align-items: center;
     justify-content: center;
     backdrop-filter: blur(10px);
+}
+
+body.light-mode .login-overlay {
+    background: rgba(248, 250, 249, 0.95);
 }
 
 .login-modal {
@@ -307,6 +326,31 @@ body {
 .app-container.blur {
     filter: blur(20px);
     pointer-events: none;
+}
+
+/* Theme Toggle Button */
+.theme-toggle {
+    background: var(--bg-tab);
+    border: 1px solid var(--border);
+    color: var(--accent);
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 1.2rem;
+    transition: var(--transition);
+    box-shadow: var(--shadow);
+}
+.theme-toggle:hover {
+    transform: rotate(30deg);
+}
+body.light-mode .theme-toggle {
+    background: #E6F4F0;
+    color: #10B981;
+    border-color: #10B981;
 }
 
 .pulse {

@@ -9,36 +9,39 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        .home-container { padding: 20px; max-width: 500px; margin: 0 auto; color: white; }
-        .hero { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); padding: 30px; border-radius: 20px; text-align: center; margin-bottom: 25px; border: 1px solid #1e293b; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
+        .home-container { padding: 20px; max-width: 500px; margin: 0 auto; color: var(--text-main); }
+        .hero { background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-main) 100%); padding: 30px; border-radius: 20px; text-align: center; margin-bottom: 25px; border: 1px solid var(--border); box-shadow: var(--shadow); }
+        body.light-mode .hero { background: linear-gradient(135deg, #10B981 0%, #059669 100%); color: white; border: none; }
+        body.light-mode .hero h1 { -webkit-text-fill-color: white; color: white; }
+        body.light-mode .hero p { color: rgba(255,255,255,0.8); }
         .hero h1 { font-size: 32px; font-weight: 800; margin-bottom: 10px; background: linear-gradient(to right, #3b82f6, #60a5fa); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
         .hero p { color: #888; font-size: 15px; margin-bottom: 20px; }
-        .launch-btn { background: #3b82f6; color: white; font-weight: 700; font-size: 18px; padding: 15px 30px; border-radius: 12px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4); margin-bottom: 15px; }
+        .launch-btn { background: #10B981; color: white; font-weight: 700; font-size: 18px; padding: 15px 30px; border-radius: 12px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4); margin-bottom: 15px; }
         .grid-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-        .nav-card { background: #1a1c23; border: 1px solid #2d2f39; padding: 20px; border-radius: 15px; display: flex; flex-direction: column; align-items: center; gap: 10px; cursor: pointer; transition: transform 0.2s; }
-        .nav-card:hover { transform: translateY(-3px); border-color: #3b82f6; }
-        .nav-card i { font-size: 24px; color: #3b82f6; }
+        .nav-card { background: var(--bg-card); border: 1px solid var(--border); padding: 20px; border-radius: 15px; display: flex; flex-direction: column; align-items: center; gap: 10px; cursor: pointer; transition: transform 0.2s; box-shadow: var(--shadow); }
+        .nav-card:hover { transform: translateY(-3px); border-color: var(--accent); }
+        .nav-card i { font-size: 24px; color: var(--accent); }
         .nav-card span { font-size: 14px; font-weight: 600; }
-        .stats-box { background: #1a1c23; border: 1px solid #2d2f39; border-radius: 15px; padding: 20px; margin-top: 25px; }
+        .stats-box { background: var(--bg-card); border: 1px solid var(--border); border-radius: 15px; padding: 20px; margin-top: 25px; box-shadow: var(--shadow); }
         .stat-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
         .stat-item:last-child { margin-bottom: 0; }
-        .stat-label { color: #888; font-size: 13px; }
-        .stat-value { font-weight: 700; font-size: 14px; }
-        .plan-tag { background: #3b82f6; color: white; padding: 4px 8px; border-radius: 4px; text-transform: uppercase; font-size: 10px; }
+        .stat-label { color: var(--text-sub); font-size: 13px; }
+        .stat-value { font-weight: 700; font-size: 14px; color: var(--text-main); }
+        .plan-tag { background: var(--accent); color: white; padding: 4px 8px; border-radius: 4px; text-transform: uppercase; font-size: 10px; }
         .referral-progress { background: #0f111a; height: 10px; border-radius: 5px; margin-top: 15px; overflow: hidden; }
         .progress-bar { background: #10b981; height: 100%; border-radius: 5px; width: 0%; transition: width 0.5s; }
         .logout-btn-home { margin-top: 30px; text-align: center; color: #ef4444; font-size: 14px; cursor: pointer; }
 
         /* Stats Grid */
         .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 20px; }
-        .stat-card { background: #1a1c23; border: 1px solid #2d2f39; border-radius: 16px; padding: 20px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px; transition: transform 0.2s; }
+        .stat-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 20px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px; transition: transform 0.2s; box-shadow: var(--shadow); }
         .stat-card:active { transform: scale(0.96); }
         .stat-card i { font-size: 20px; margin-bottom: 4px; }
-        .stat-card .val { font-size: 24px; font-weight: 800; font-family: 'Inter', sans-serif; }
-        .stat-card .lbl { font-size: 11px; color: #888; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-card .val { font-size: 24px; font-weight: 800; font-family: 'Inter', sans-serif; color: var(--text-main); }
+        .stat-card .lbl { font-size: 11px; color: var(--text-sub); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
         
-        .card-users i { color: #3b82f6; }
-        .card-hits i { color: #10b981; }
+        .card-users i { color: #10B981; }
+        .card-hits i { color: #10B981; }
         .card-your-hits i { color: #ef4444; }
         .card-rank i { color: #f59e0b; }
         
@@ -46,15 +49,24 @@
         .card-rank .val { color: #f59e0b; } /* Gold accent for rank */
     </style>
     <script>
-        // Synchronous Auth & UI Guard (Prevents Flickering)
+        // Synchronous Auth & Theme Guard (Prevents Flickering)
         (function() {
             const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+            const savedTheme = localStorage.getItem('appTheme') || 'dark';
+            if (savedTheme === 'light') document.body.classList.add('light-mode');
+            
             document.documentElement.classList.add('loading-state');
             
             window.addEventListener('DOMContentLoaded', () => {
                 const loginOverlay = document.getElementById('loginOverlay');
                 const app = document.getElementById('app');
                 const loader = document.getElementById('autoCheckLoader');
+                
+                // Set initial icon
+                const themeBtn = document.getElementById('themeToggleBtn');
+                if (themeBtn) {
+                    themeBtn.innerHTML = savedTheme === 'light' ? '<i class="fas fa-moon"></i>' : '<i class="fas fa-sun"></i>';
+                }
 
                 if (!isLoggedIn) {
                     loginOverlay.classList.remove('hidden');
@@ -66,6 +78,16 @@
                 }
             });
         })();
+
+        function toggleTheme() {
+            const body = document.body;
+            const btn = document.getElementById('themeToggleBtn');
+            const isLight = body.classList.toggle('light-mode');
+            const newTheme = isLight ? 'light' : 'dark';
+            
+            localStorage.setItem('appTheme', newTheme);
+            btn.innerHTML = isLight ? '<i class="fas fa-moon"></i>' : '<i class="fas fa-sun"></i>';
+        }
     </script>
 </head>
 <body>
@@ -89,16 +111,21 @@
     </div>
 
     <div id="app" class="home-container">
-        <!-- Profile Section -->
-        <div class="profile-bar">
-            <div id="userPic" class="profile-pic">?</div>
-            <div class="profile-info">
-                <span id="userName" class="profile-name">Guest User</span>
-                <span id="userChatIdDisplay" class="profile-id">ID: 000000000</span>
+        <!-- Header Bar -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div class="profile-bar" style="margin-bottom: 0; flex: 1;">
+                <div id="userPic" class="profile-pic">?</div>
+                <div class="profile-info">
+                    <span id="userName" class="profile-name">Guest User</span>
+                    <span id="userChatIdDisplay" class="profile-id">ID: 000000000</span>
+                </div>
+                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+                    <div class="plan-tag" id="profilePlanBadge">FREE</div>
+                    <div id="profileRankBadge" style="font-size: 10px; color: var(--text-sub); font-weight: 600;">Rank #--</div>
+                </div>
             </div>
-            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
-                <div class="plan-tag" id="profilePlanBadge">FREE</div>
-                <div id="profileRankBadge" style="font-size: 10px; color: #888; font-weight: 600;">Rank #--</div>
+            <div id="themeToggleBtn" class="theme-toggle" style="margin-left: 15px;" onclick="toggleTheme()">
+                <i class="fas fa-sun"></i>
             </div>
         </div>
 

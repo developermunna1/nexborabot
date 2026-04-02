@@ -10,40 +10,10 @@ const BOT_TOKEN = config.NOTIFY_BOT_TOKEN;
 
 const bot = new Telegraf(BOT_TOKEN);
 const sessionCache = new Map();
+const membership = require('./membership'); // New robust check
 
 async function isSubscribed(ctx) {
-    const userId = ctx.from.id;
-    
-    const db = storage.getDB();
-    const settings = db.settings || {};
-    const CHANNELS = settings.channels || config.CHANNELS;
-
-    console.log(`[Bot] Checking membership for user ${userId} in ${CHANNELS.length} channels...`);
-
-    try {
-        for (const channelBody of CHANNELS) {
-            // Support both handles and IDs
-            let channel = channelBody;
-            if (typeof channel === 'string' && !channel.startsWith('-') && !channel.startsWith('@')) {
-                channel = `@${channel}`;
-            }
-            
-            try {
-                const member = await ctx.telegram.getChatMember(channel, userId);
-                console.log(`[Bot] ${userId} status in ${channel}: ${member.status}`);
-                if (['left', 'kicked', 'restricted'].includes(member.status)) {
-                    return false;
-                }
-            } catch (err) {
-                console.warn(`[Bot] Check failed for ${channel}:`, err.message);
-                return false; // Safest to assume not joined if check fails
-            }
-        }
-        return true;
-    } catch (err) {
-        console.error('[Bot] Membership check system error:', err.message);
-        return false;
-    }
+    return await membership.checkMembership(bot, ctx.from.id);
 }
 
 // Start Command

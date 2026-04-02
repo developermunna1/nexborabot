@@ -25,6 +25,14 @@
         .link-box { background: #0f111a; border: 1px solid #2d2f39; padding: 12px; border-radius: 8px; font-size: 12px; font-family: monospace; word-break: break-all; margin: 15px 0; color: #3b82f6; }
         .share-btn { background: #3b82f6; color: white; border: none; padding: 12px; border-radius: 8px; width: 100%; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
     </style>
+    <script>
+        // Synchronous Auth Guard (Prevents Flickering)
+        (function() {
+            if (!localStorage.getItem('userChatId')) {
+                window.location.href = '/';
+            }
+        })();
+    </script>
 </head>
 <body>
     <div class="app-container">

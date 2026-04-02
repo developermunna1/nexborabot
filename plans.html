@@ -198,6 +198,14 @@
             margin-bottom: 10px;
         }
     </style>
+    <script>
+        // Synchronous Auth Guard (Prevents Flickering)
+        (function() {
+            if (!localStorage.getItem('userChatId')) {
+                window.location.href = '/';
+            }
+        })();
+    </script>
 </head>
 <body>
     <div class="app-container">

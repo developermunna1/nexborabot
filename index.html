@@ -45,10 +45,32 @@
         .card-your-hits .val { color: #a78bfa; } /* Purple accent for your hits */
         .card-rank .val { color: #f59e0b; } /* Gold accent for rank */
     </style>
+    <script>
+        // Synchronous Auth & UI Guard (Prevents Flickering)
+        (function() {
+            const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+            document.documentElement.classList.add('loading-state');
+            
+            window.addEventListener('DOMContentLoaded', () => {
+                const loginOverlay = document.getElementById('loginOverlay');
+                const app = document.getElementById('app');
+                const loader = document.getElementById('autoCheckLoader');
+
+                if (!isLoggedIn) {
+                    loginOverlay.classList.remove('hidden');
+                    app.classList.add('blur');
+                } else {
+                    loginOverlay.classList.add('hidden');
+                    app.classList.add('blur'); // Stay blurred while checking membership
+                    loader.classList.remove('hidden'); // Show loading immediately
+                }
+            });
+        })();
+    </script>
 </head>
 <body>
-    <!-- Login Overlay -->
-    <div id="loginOverlay" class="login-overlay">
+    <!-- Login Overlay (Hidden by default, shown by sync script if needed) -->
+    <div id="loginOverlay" class="login-overlay hidden">
         <div class="login-modal">
             <div class="login-header">
                 <i class="fas fa-lock pulse"></i>
@@ -66,7 +88,7 @@
         </div>
     </div>
 
-    <div id="app" class="home-container blur">
+    <div id="app" class="home-container">
         <!-- Profile Section -->
         <div class="profile-bar">
             <div id="userPic" class="profile-pic">?</div>
@@ -197,7 +219,7 @@
 
                 // Handle Verification Logic (Now always checks for new channels)
                 const loader = document.getElementById('autoCheckLoader');
-                loader.classList.remove('hidden');
+                // loader.classList.remove('hidden'); // Already shown by sync script
                 
                 // Render the dynamic join list
                 renderJoinList(data.channels || []);

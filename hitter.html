@@ -8,10 +8,27 @@
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        // Synchronous Auth & UI Guard (Prevents Flickering)
+        (function() {
+            const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+            window.addEventListener('DOMContentLoaded', () => {
+                const loginOverlay = document.getElementById('loginOverlay');
+                const app = document.getElementById('app');
+                if (isLoggedIn) {
+                    loginOverlay.classList.add('hidden');
+                    app.classList.remove('blur');
+                } else {
+                    loginOverlay.classList.remove('hidden');
+                    app.classList.add('blur');
+                }
+            });
+        })();
+    </script>
 </head>
 <body>
-    <!-- Login Overlay -->
-    <div id="loginOverlay" class="login-overlay">
+    <!-- Login Overlay (Hidden by default, shown by sync script if needed) -->
+    <div id="loginOverlay" class="login-overlay hidden">
         <div class="login-modal">
             <div class="login-header">
                 <i class="fas fa-lock pulse"></i>
@@ -45,7 +62,7 @@
         </div>
     </div>
 
-    <div id="app" class="app-container blur">
+    <div id="app" class="app-container">
         <!-- User Profile Section -->
         <div class="profile-bar">
             <div id="userPic" class="profile-pic">?</div>

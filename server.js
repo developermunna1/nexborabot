@@ -645,6 +645,53 @@ app.post('/admin/generate-promo', async (req, res) => {
   }
 });
 
+// Broadcast Message to All Users
+app.post('/admin/broadcast', async (req, res) => {
+  try {
+    const { password, message } = req.body;
+    if (password !== ADMIN_PWD) return res.status(401).json({ error: 'Unauthorized' });
+    if (!message) return res.status(400).json({ error: 'Message required' });
+
+    const db = readDB();
+    const userIds = Object.keys(db.users || {});
+    
+    if (userIds.length === 0) {
+      return res.json({ success: true, count: 0, failed: 0, message: 'No users to broadcast to.' });
+    }
+
+    console.log(`[Admin] Starting broadcast to ${userIds.length} users...`);
+    const bot = require('./bot');
+    
+    let successCount = 0;
+    let failedCount = 0;
+
+    // We use a loop instead of Promise.all to avoid hitting Telegram's rate limits
+    // and to handle individual errors more gracefully.
+    for (const uid of userIds) {
+      try {
+        await bot.telegram.sendMessage(uid, message, { parse_mode: 'HTML' });
+        successCount++;
+        // Small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 50)); 
+      } catch (err) {
+        console.warn(`[Admin] Broadcast failed for user ${uid}:`, err.message);
+        failedCount++;
+      }
+    }
+
+    console.log(`[Admin] Broadcast completed: ${successCount} success, ${failedCount} failed.`);
+    res.json({ 
+      success: true, 
+      count: successCount, 
+      failed: failedCount, 
+      message: `Broadcast completed. Sent: ${successCount}, Failed: ${failedCount}` 
+    });
+  } catch (err) {
+    console.error('[Admin] Broadcast Error:', err.message);
+    res.status(500).json({ error: 'Server Error', message: err.message });
+  }
+});
+
 app.post('/admin/users', (req, res) => {
   try {
     const { password } = req.body;

@@ -103,6 +103,16 @@
             </div>
 
             <div class="admin-card">
+                <h3 style="color: #ec4899;"><i class="fas fa-bullhorn"></i> Send Broadcast Message</h3>
+                <label style="font-size: 11px; color: #888;">MESSAGE (HTML Supported)</label>
+                <textarea id="broadcastMsg" placeholder="🔥 Hello Users!..." rows="4" style="background: #0f111a; border: 1px solid #2d2f39; color: white; padding: 10px; border-radius: 6px; margin-bottom: 10px; width: 100%; font-family: inherit; font-size: 14px;"></textarea>
+                
+                <button onclick="sendBroadcast()" id="broadcastBtn" style="background: #ec4899;">Send Broadcast to All Users</button>
+                
+                <div id="broadcastStatus" style="font-size: 12px; margin-top: 10px; color: #10b981;"></div>
+            </div>
+
+            <div class="admin-card">
                 <h3>Direct Activation (by Chat ID)</h3>
                 <input type="text" id="directChatId" placeholder="User Chat ID (e.g. 1268860)">
                 <select id="directPlan">
@@ -377,6 +387,44 @@
 
         async function loadUsers() {
             fetchUsers();
+        }
+
+        async function sendBroadcast() {
+            const message = document.getElementById('broadcastMsg').value.trim();
+            if (!message) return alert('Enter a message to broadcast');
+
+            if (!confirm(`Are you sure you want to send this message to ALL users?`)) return;
+
+            const btn = document.getElementById('broadcastBtn');
+            const statusDiv = document.getElementById('broadcastStatus');
+
+            btn.disabled = true;
+            btn.innerText = 'Sending Broadcast...';
+            statusDiv.innerText = 'Broadcast in progress. Do not close this page.';
+
+            try {
+                const res = await fetch('/admin/broadcast', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password, message })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    alert(data.message);
+                    statusDiv.innerText = `Last Broadcast: Sent to ${data.count}, Failed ${data.failed}`;
+                    document.getElementById('broadcastMsg').value = '';
+                } else {
+                    alert(data.error || 'Broadcast Failed');
+                    statusDiv.innerText = '';
+                }
+            } catch (e) {
+                alert('Connection Error');
+                statusDiv.innerText = '';
+            } finally {
+                btn.disabled = false;
+                btn.innerText = 'Send Broadcast to All Users';
+            }
         }
     </script>
 </body>

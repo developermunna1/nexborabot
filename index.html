@@ -61,8 +61,8 @@
                     app.classList.add('blur');
                 } else {
                     loginOverlay.classList.add('hidden');
-                    app.classList.add('blur'); // Stay blurred while checking membership
-                    loader.classList.remove('hidden'); // Show loading immediately
+                    app.classList.remove('blur'); // Show app immediately
+                    loader.classList.add('hidden'); // Keep loader hidden for silent check
                 }
             });
         })();
@@ -217,38 +217,24 @@
                 document.getElementById('homeReferralText').innerText = `${refCount} / 10`;
                 document.getElementById('homeProgressBar').style.width = `${Math.min(refCount, 10) * 10}%`;
 
-                // Handle Verification Logic (Now always checks for new channels)
-                const loader = document.getElementById('autoCheckLoader');
-                // loader.classList.remove('hidden'); // Already shown by sync script
-                
-                // Render the dynamic join list
+                // Silent Membership Check (Runs in background)
                 renderJoinList(data.channels || []);
                 
-                setTimeout(async () => {
-                    try {
-                        const verifyRes = await fetch('/verify-membership', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ chatId: currentChatId })
-                        });
-                        
-                        loader.classList.add('hidden');
-                        
-                        if (verifyRes.ok) {
-                            // Membership confirmed! Unlock app.
-                            document.getElementById('app').classList.remove('blur');
-                            document.getElementById('verifyOverlay').classList.add('hidden');
-                        } else {
-                            // Not joined - show the Join page
-                            document.getElementById('verifyOverlay').classList.remove('hidden');
-                            document.getElementById('app').classList.add('blur');
-                        }
-                    } catch (err) {
-                        loader.classList.add('hidden');
+                try {
+                    const verifyRes = await fetch('/verify-membership', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ chatId: currentChatId })
+                    });
+                    
+                    if (!verifyRes.ok) {
+                        // User is NOT a member - now we show the overlay
                         document.getElementById('verifyOverlay').classList.remove('hidden');
                         document.getElementById('app').classList.add('blur');
                     }
-                }, 1500); // reduced delay for better experience
+                } catch (err) {
+                    console.error('Silent verification failed', err);
+                }
 
                 document.getElementById('loginOverlay').classList.add('hidden');
             } catch (e) {

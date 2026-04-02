@@ -14,10 +14,11 @@ const sessionCache = new Map();
 async function isSubscribed(ctx) {
     const userId = ctx.from.id;
     
-    // Fetch channels from DB (fallback to config)
     const db = storage.getDB();
     const settings = db.settings || {};
     const CHANNELS = settings.channels || config.CHANNELS;
+
+    console.log(`[Bot] Checking membership for user ${userId} in ${CHANNELS.length} channels...`);
 
     try {
         for (const channelBody of CHANNELS) {
@@ -29,23 +30,43 @@ async function isSubscribed(ctx) {
             
             try {
                 const member = await ctx.telegram.getChatMember(channel, userId);
+                console.log(`[Bot] ${userId} status in ${channel}: ${member.status}`);
                 if (['left', 'kicked', 'restricted'].includes(member.status)) {
                     return false;
                 }
             } catch (err) {
-                console.error(`[Bot] Error checking channel ${channel}:`, err.message);
+                console.warn(`[Bot] Check failed for ${channel}:`, err.message);
                 return false; // Safest to assume not joined if check fails
             }
         }
         return true;
     } catch (err) {
-        console.error('[Bot] Membership check error:', err.message);
+        console.error('[Bot] Membership check system error:', err.message);
         return false;
     }
 }
 
 // Start Command
 bot.start(async (ctx) => {
+    // Check membership on start
+    const subscribed = await isSubscribed(ctx);
+    if (!subscribed) {
+        const db = storage.getDB();
+        const settings = db.settings || {};
+        const CHANNELS = settings.channels || config.CHANNELS;
+        
+        let msg = `🔥 <b>Auto Hitter Bot</b>\n\n⚠️ <b>Please join our official channels to use the bot:</b>\n\n`;
+        CHANNELS.forEach(ch => {
+            if (ch.startsWith('@')) {
+                msg += `🔹 <a href="https://t.me/${ch.substring(1)}">${ch}</a>\n`;
+            } else {
+                msg += `🔹 <code>${ch}</code> (Private ID)\n`;
+            }
+        });
+        msg += `\nAfter joining, send /start again!`;
+        return ctx.replyWithHTML(msg, { disable_web_page_preview: true });
+    }
+
     const chat_id = ctx.chat.id;
     const msg = `🔥 <b>Auto Hitter Bot</b>
 ━━━━━━━━━━━━━━━━━━━━
@@ -73,6 +94,26 @@ bot.command('inv', (ctx) => runHit(ctx, 'invoice'));
 bot.command('bill', (ctx) => runHit(ctx, 'billing'));
 
 async function runHit(ctx, gate) {
+    // 1. Mandatory Membership Check
+    const subscribed = await isSubscribed(ctx);
+    if (!subscribed) {
+        const db = storage.getDB();
+        const settings = db.settings || {};
+        const CHANNELS = settings.channels || config.CHANNELS;
+        
+        let msg = `⚠️ <b>Access Denied</b>\n\nTo use this bot, you must join our official channels/groups first:\n\n`;
+        CHANNELS.forEach(ch => {
+            if (ch.startsWith('@')) {
+                msg += `🔹 <a href="https://t.me/${ch.substring(1)}">${ch}</a>\n`;
+            } else {
+                msg += `🔹 <code>${ch}</code> (Private ID)\n`;
+            }
+        });
+        msg += `\nAfter joining, try your command again!`;
+        
+        return ctx.replyWithHTML(msg, { disable_web_page_preview: true });
+    }
+
     const text = ctx.message.text;
     const parts = text.split(/\s+/);
     

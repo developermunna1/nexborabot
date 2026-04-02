@@ -195,46 +195,68 @@
                 document.getElementById('homeReferralText').innerText = `${refCount} / 10`;
                 document.getElementById('homeProgressBar').style.width = `${Math.min(refCount, 10) * 10}%`;
 
-                // Handle Verification Logic
-                if (data.isVerified === true) {
-                    // Already verified once - skip everything
-                    document.getElementById('verifyOverlay').classList.add('hidden');
-                    document.getElementById('app').classList.remove('blur');
-                } else {
-                    // Not verified - show 2-sec auto-check
-                    const loader = document.getElementById('autoCheckLoader');
-                    loader.classList.remove('hidden');
-                    
-                    setTimeout(async () => {
-                        try {
-                            const verifyRes = await fetch('/verify-membership', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ chatId: currentChatId })
-                            });
-                            
-                            loader.classList.add('hidden');
-                            
-                            if (verifyRes.ok) {
-                                // Already joined! Unlock app.
-                                document.getElementById('app').classList.remove('blur');
-                            } else {
-                                // Not joined - show the Join page
-                                document.getElementById('verifyOverlay').classList.remove('hidden');
-                                document.getElementById('app').classList.add('blur');
-                            }
-                        } catch (err) {
-                            loader.classList.add('hidden');
+                // Handle Verification Logic (Now always checks for new channels)
+                const loader = document.getElementById('autoCheckLoader');
+                loader.classList.remove('hidden');
+                
+                // Render the dynamic join list
+                renderJoinList(data.channels || []);
+                
+                setTimeout(async () => {
+                    try {
+                        const verifyRes = await fetch('/verify-membership', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ chatId: currentChatId })
+                        });
+                        
+                        loader.classList.add('hidden');
+                        
+                        if (verifyRes.ok) {
+                            // Membership confirmed! Unlock app.
+                            document.getElementById('app').classList.remove('blur');
+                            document.getElementById('verifyOverlay').classList.add('hidden');
+                        } else {
+                            // Not joined - show the Join page
                             document.getElementById('verifyOverlay').classList.remove('hidden');
                             document.getElementById('app').classList.add('blur');
                         }
-                    }, 2000); // 2 second delay
-                }
+                    } catch (err) {
+                        loader.classList.add('hidden');
+                        document.getElementById('verifyOverlay').classList.remove('hidden');
+                        document.getElementById('app').classList.add('blur');
+                    }
+                }, 1500); // reduced delay for better experience
 
                 document.getElementById('loginOverlay').classList.add('hidden');
             } catch (e) {
                 console.error('Home init failed', e);
             }
+        }
+
+        function renderJoinList(channels) {
+            const listDiv = document.querySelector('.channel-list');
+            listDiv.innerHTML = ''; // Clear hardcoded ones
+
+            if (channels.length === 0) {
+                listDiv.innerHTML = '<p style="text-align:center;color:#888;font-size:13px">No channels required.</p>';
+                return;
+            }
+
+            channels.forEach(ch => {
+                const item = document.createElement('a');
+                item.href = ch.url;
+                item.target = '_blank';
+                item.className = 'channel-item';
+                item.innerHTML = `
+                    <div class="channel-info">
+                        <i class="fab fa-telegram-plane"></i>
+                        <span class="channel-name">${ch.name}</span>
+                    </div>
+                    <span class="join-tag">Join</span>
+                `;
+                listDiv.appendChild(item);
+            });
         }
 
         async function verifyMembership() {
@@ -344,28 +366,9 @@
                 <p>To access the premium hitter features, you must join our official channels.</p>
             </div>
             
+            
             <div class="channel-list">
-                <a href="https://t.me/bdhitlog" target="_blank" class="channel-item">
-                    <div class="channel-info">
-                        <i class="fab fa-telegram-plane"></i>
-                        <span class="channel-name">BD Hit Log</span>
-                    </div>
-                    <span class="join-tag">Join</span>
-                </a>
-                <a href="https://t.me/hitterlite" target="_blank" class="channel-item">
-                    <div class="channel-info">
-                        <i class="fab fa-telegram-plane"></i>
-                        <span class="channel-name">Hitter Lite</span>
-                    </div>
-                    <span class="join-tag">Join</span>
-                </a>
-                <a href="https://t.me/Nexvora_Official" target="_blank" class="channel-item">
-                    <div class="channel-info">
-                        <i class="fab fa-telegram-plane"></i>
-                        <span class="channel-name">Nexvora Official</span>
-                    </div>
-                    <span class="join-tag">Join</span>
-                </a>
+                <!-- Dynamic Channels will be injected here -->
             </div>
 
             <button id="verifyBtn" class="verify-btn" onclick="verifyMembership()">

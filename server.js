@@ -243,6 +243,24 @@ app.post('/get-user-info', (req, res) => {
   const userTotalHits = user.total_hits || 0;
   const userRank = allUsers.findIndex(u => u.id === chatId) + 1;
 
+  // Current mandatory channels/groups list
+  const settings = db.settings || {};
+  const CHANNELS = settings.channels || config.CHANNELS;
+  const formattedChannels = CHANNELS.map(ch => {
+      let url = ch;
+      let name = ch;
+      if (typeof ch === 'string') {
+          if (ch.startsWith('@')) {
+              url = `https://t.me/${ch.substring(1)}`;
+              name = ch.substring(1).split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+          } else if (ch.startsWith('-')) {
+              url = `tg://resolve?domain=${ch}`; // Fallback for IDs
+              name = `Private Group (${ch})`;
+          }
+      }
+      return { id: ch, name, url };
+  });
+
   res.json({
     chatId,
     plan: user.plan,
@@ -254,7 +272,8 @@ app.post('/get-user-info', (req, res) => {
     totalUsers,
     totalHitsGlobal,
     userTotalHits,
-    userRank
+    userRank,
+    channels: formattedChannels
   });
 });
 
@@ -737,10 +756,11 @@ app.post('/admin/update-settings', async (req, res) => {
     if (password !== ADMIN_PWD) return res.status(401).json({ error: 'Unauthorized' });
     
     const db = readDB();
+    const oldSettings = db.settings || {};
     db.settings = { 
         api_key: (api_key || '').trim(), 
         api_url: (api_url || '').trim(),
-        channels: Array.isArray(channels) ? channels : (db.settings.channels || config.CHANNELS)
+        channels: Array.isArray(channels) ? channels : (oldSettings.channels || config.CHANNELS)
     };
     
     await storage.save(db);

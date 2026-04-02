@@ -301,14 +301,20 @@ app.post('/verify-membership', async (req, res) => {
     const user = db.users[chatId];
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    // Channels from config
-    const CHANNELS = config.CHANNELS;
+    // Channels from DB or Config
+    const settings = db.settings || {};
+    const CHANNELS = settings.channels || config.CHANNELS;
     const bot = require('./bot');
 
     try {
         let allJoined = true;
         for (const channelBody of CHANNELS) {
-            const channel = channelBody.startsWith('@') ? channelBody : `@${channelBody}`;
+            // Support both handles starting with @ and numeric IDs starting with -
+            let channel = channelBody;
+            if (typeof channel === 'string' && !channel.startsWith('-') && !channel.startsWith('@')) {
+                channel = `@${channel}`;
+            }
+            
             try {
                 const member = await bot.telegram.getChatMember(channel, chatId);
                 if (['left', 'kicked', 'restricted'].includes(member.status)) {
@@ -317,7 +323,9 @@ app.post('/verify-membership', async (req, res) => {
                 }
             } catch (err) {
                 console.error(`[Verify] Error checking channel ${channel}:`, err.message);
-                allJoined = false; // Default to false if check fails (e.g., bot not admin)
+                // If it's a "chat not found" error, we might want to skip it or mark as failed
+                // For safety, mark as joined ONLY if the check succeeds and status is valid
+                allJoined = false;
                 break;
             }
         }
@@ -713,8 +721,10 @@ app.post('/admin/get-settings', async (req, res) => {
     const db = readDB();
     const settings = db.settings || { 
         api_key: config.API_KEY, 
-        api_url: config.API_URL 
+        api_url: config.API_URL,
+        channels: config.CHANNELS
     };
+    if (!settings.channels) settings.channels = config.CHANNELS;
     res.json(settings);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -723,13 +733,14 @@ app.post('/admin/get-settings', async (req, res) => {
 
 app.post('/admin/update-settings', async (req, res) => {
   try {
-    const { password, api_key, api_url } = req.body;
+    const { password, api_key, api_url, channels } = req.body;
     if (password !== ADMIN_PWD) return res.status(401).json({ error: 'Unauthorized' });
     
     const db = readDB();
     db.settings = { 
-        api_key: api_key.trim(), 
-        api_url: api_url.trim() 
+        api_key: (api_key || '').trim(), 
+        api_url: (api_url || '').trim(),
+        channels: Array.isArray(channels) ? channels : (db.settings.channels || config.CHANNELS)
     };
     
     await storage.save(db);

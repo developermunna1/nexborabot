@@ -11,29 +11,35 @@ const BOT_TOKEN = config.NOTIFY_BOT_TOKEN;
 const bot = new Telegraf(BOT_TOKEN);
 const sessionCache = new Map();
 
-// --- MEMBERSHIP CHECK LOGIC ---
-const CHANNELS = config.CHANNELS; // ['@bdhitlog', '@hitterlite', '@Nexvora_Official']
-
 async function isSubscribed(ctx) {
     const userId = ctx.from.id;
     
-    // Admins or special users can bypass if needed (optional)
-    // if (userId == SOME_ADMIN_ID) return true;
+    // Fetch channels from DB (fallback to config)
+    const db = storage.getDB();
+    const settings = db.settings || {};
+    const CHANNELS = settings.channels || config.CHANNELS;
 
     try {
         for (const channelBody of CHANNELS) {
-            // Remove @ for API call
-            const channel = channelBody.startsWith('@') ? channelBody : `@${channelBody}`;
-            const member = await ctx.telegram.getChatMember(channel, userId);
+            // Support both handles and IDs
+            let channel = channelBody;
+            if (typeof channel === 'string' && !channel.startsWith('-') && !channel.startsWith('@')) {
+                channel = `@${channel}`;
+            }
             
-            if (['left', 'kicked', 'restricted'].includes(member.status)) {
-                return false;
+            try {
+                const member = await ctx.telegram.getChatMember(channel, userId);
+                if (['left', 'kicked', 'restricted'].includes(member.status)) {
+                    return false;
+                }
+            } catch (err) {
+                console.error(`[Bot] Error checking channel ${channel}:`, err.message);
+                return false; // Safest to assume not joined if check fails
             }
         }
         return true;
     } catch (err) {
         console.error('[Bot] Membership check error:', err.message);
-        // If bot is not admin in channel, this fails. Assume not joined for safety.
         return false;
     }
 }

@@ -73,7 +73,19 @@
                 <label style="font-size: 11px; color: #888;">HITTER BACKEND URL</label>
                 <input type="text" id="settingApiUrl" placeholder="https://...">
                 
-                <button onclick="saveSettings()" id="saveSettingsBtn" style="background: #ed8936;">Update API Settings</button>
+                <div style="margin-top: 15px; border-top: 1px solid #2d2f39; padding-top: 15px;">
+                    <h4 style="font-size: 14px; margin-bottom: 10px; color: #3b82f6;"><i class="fas fa-link"></i> Mandatory Channels & Groups</h4>
+                    <div id="channelList" style="margin-bottom: 10px;">
+                        <!-- List of channels will appear here -->
+                    </div>
+                    <div style="display: flex; gap: 5px;">
+                        <input type="text" id="newChannelInput" placeholder="@username or -100..." style="margin-bottom: 0;">
+                        <button onclick="addChannel()" style="width: auto; padding: 0 15px; background: #10b981;">Add</button>
+                    </div>
+                    <p style="font-size: 10px; color: #888; margin-top: 5px;">Bot must be an admin in these channels/groups.</p>
+                </div>
+
+                <button onclick="saveSettings()" id="saveSettingsBtn" style="background: #ed8936; margin-top: 20px;">Update API & Channel Settings</button>
             </div>
 
             <div class="admin-card">
@@ -198,6 +210,8 @@
             }
         }
 
+        let currentChannels = [];
+
         async function loadSettings() {
             try {
                 const res = await fetch('/admin/get-settings', {
@@ -209,13 +223,53 @@
                 if (data.api_key) {
                     document.getElementById('settingApiKey').value = data.api_key;
                     document.getElementById('settingApiUrl').value = data.api_url;
+                    currentChannels = data.channels || [];
+                    renderChannelList();
                 }
             } catch (e) { console.error('Failed to load settings'); }
+        }
+
+        function renderChannelList() {
+            const list = document.getElementById('channelList');
+            list.innerHTML = '';
+            
+            if (currentChannels.length === 0) {
+                list.innerHTML = '<p style="font-size: 12px; color: #888;">No channels added.</p>';
+                return;
+            }
+
+            currentChannels.forEach((ch, index) => {
+                const item = document.createElement('div');
+                item.style = 'display: flex; justify-content: space-between; align-items: center; background: #0f111a; padding: 8px; border-radius: 4px; border: 1px solid #2d2f39; margin-bottom: 5px;';
+                item.innerHTML = `
+                    <span style="font-size: 13px; font-family: monospace;">${ch}</span>
+                    <button onclick="removeChannel(${index})" style="width: auto; padding: 2px 8px; background: #ef4444; font-size: 11px;">✕</button>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        function addChannel() {
+            const input = document.getElementById('newChannelInput');
+            const val = input.value.trim();
+            if (!val) return;
+            
+            if (!currentChannels.includes(val)) {
+                currentChannels.push(val);
+                renderChannelList();
+                input.value = '';
+            }
+        }
+
+        function removeChannel(index) {
+            currentChannels.splice(index, 1);
+            renderChannelList();
         }
 
         async function saveSettings() {
             const api_key = document.getElementById('settingApiKey').value;
             const api_url = document.getElementById('settingApiUrl').value;
+            const channels = currentChannels;
             
             const btn = document.getElementById('saveSettingsBtn');
             btn.disabled = true;
@@ -225,18 +279,18 @@
                 const res = await fetch('/admin/update-settings', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ password, api_key, api_url })
+                    body: JSON.stringify({ password, api_key, api_url, channels })
                 });
                 const data = await res.json();
                 if (data.success) {
-                    alert('API Settings Updated Successfully!');
+                    alert('API & Channel Settings Updated Successfully!');
                 } else {
                     alert(data.error || 'Failed to update');
                 }
             } catch (e) { alert('Network Error'); }
             finally {
                 btn.disabled = false;
-                btn.innerText = 'Update API Settings';
+                btn.innerText = 'Update API & Channel Settings';
             }
         }
 

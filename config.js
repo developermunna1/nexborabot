@@ -11,8 +11,8 @@ module.exports = {
   FIREBASE_URL: 'https://hitterapweapp-default-rtdb.firebaseio.com',
   
   // --- NOTIFICATION CONFIG ---
-  NOTIFY_BOT_TOKEN: '8680374467:AAEcO6m-O6BOQD0mec7cyURfqQ8Ax2bphkk',
-  NOTIFY_CHAT_ID: '-1003721268860',
+  NOTIFY_BOT_TOKEN: '8786502466:AAG1KINHOiInUNG_hIGZvWvjLP1PaWXywf0',
+  NOTIFY_CHAT_ID: '8766583877',
   
   // --- MANDATORY CHANNELS ---
   CHANNELS: ['@bdhitlog', '@hitterlite', '@Nexvora_Official1'],

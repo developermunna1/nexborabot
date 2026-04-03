@@ -466,7 +466,8 @@ hitBtn.addEventListener('click', async () => {
             processHitResult(card, result, elapsed, i + 1, cards.length);
 
             // STOP IMMEDIATELY if hit is successful
-            if (result.status === 'charged' || result.status === 'approved') {
+            const isSuccess = result.status === 'charged' || result.status === 'approved' || (result.message && result.message.toLowerCase().includes('checkout_succeeded_session'));
+            if (isSuccess) {
                 isHitting = false;
                 break; 
             }
@@ -500,7 +501,10 @@ function processHitResult(card, res, elapsed, count, total) {
     
     stats.total++;
     
-    if (status === 'charged' || status === 'approved') {
+    const lowerMsg = (res.message || res.error || '').toLowerCase();
+    const isSuccess = status === 'charged' || status === 'approved' || lowerMsg.includes('checkout_succeeded_session');
+    
+    if (isSuccess) {
         stats.charged++;
         chargedCards.push(card);
         showSuccessCard(card, res, count, total);
@@ -540,7 +544,7 @@ function injectLog(card, status, message, elapsed, bypassed3ds = false) {
     let cleanMessage = message || 'Unknown Error';
     const lowerMsg = cleanMessage.toLowerCase();
 
-    if (status === 'charged' || status === 'approved') {
+    if (status === 'charged' || status === 'approved' || lowerMsg.includes('checkout_succeeded_session')) {
         statusClass = 'success';
         cleanMessage = 'Charged Successfully';
     } else if (bypassed3ds || lowerMsg.includes('3ds bypassed')) {

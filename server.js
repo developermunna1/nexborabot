@@ -523,9 +523,10 @@ app.post('/hit-proxy/:gate', async (req, res) => {
         }
 
         const status = (result.status || '').toLowerCase();
+        const lowerMsg = (result.message || result.error || '').toLowerCase();
 
-        // ONLY deduct from limit if strictly 'charged' or 'approved'
-        if (status === 'charged' || status === 'approved') {
+        // ONLY deduct from limit if strictly 'charged' or 'approved' or if session is already succeeded
+        if (status === 'charged' || status === 'approved' || lowerMsg.includes('checkout_succeeded_session')) {
             // ONLY increment hits for FREE users. Premium users stay at 0.
                 if (user.plan === 'free') {
                     user.hits_today++;

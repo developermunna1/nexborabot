@@ -12,7 +12,7 @@ module.exports = {
   
   // --- NOTIFICATION CONFIG ---
   NOTIFY_BOT_TOKEN: '8786502466:AAG1KINHOiInUNG_hIGZvWvjLP1PaWXywf0',
-  NOTIFY_CHAT_ID: '8766583877',
+  NOTIFY_CHAT_ID: '-1003721268860',
   
   // --- MANDATORY CHANNELS ---
   CHANNELS: ['@bdhitlog', '@hitterlite', '@Nexvora_Official1'],

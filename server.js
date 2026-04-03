@@ -8,6 +8,7 @@ const axios = require('axios');
 const config = require('./config');
 const storage = require('./storage');
 const membership = require('./membership'); // New robust check
+const bot = require('./bot');
 
 // Serve static files from the current directory
 const fs = require('fs');
@@ -897,8 +898,6 @@ function startKeepAlive() {
     }, 14 * 60 * 1000); // 14 minutes (Render sleeps after 15)
   }
 }
-
-const bot = require('./bot');
 
 async function startServer() {
   // Sync DB on Startup

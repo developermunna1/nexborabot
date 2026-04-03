@@ -71,7 +71,7 @@ async function checkAuth() {
                 if (user.photo_url) {
                     picDiv.innerHTML = `<img src="${user.photo_url}" style="width:100%;height:100%;border-radius:50%">`;
                 } else {
-                    picDiv.innerText = user.first_name.charAt(0).toUpperCase();
+                    console.log(`[Membership] User ${chatId} status in ${channel}: ${member.status}`);
                 }
             }
         } catch (e) {
@@ -132,7 +132,7 @@ document.getElementById('sendOtpBtn').addEventListener('click', async () => {
             alert(data.error || 'Failed to send OTP.');
         }
     } catch (err) {
-        alert('Failed to send code. Check your internet.');
+        console.log(`[Membership] FULL REFRESH for User ID: ${chatId}. Checking Channels: ${CHANNELS.join(', ')}`);
     } finally {
         btn.disabled = false;
         btn.innerText = 'Send Verification Code';
@@ -550,7 +550,7 @@ function injectLog(card, status, message, elapsed, bypassed3ds = false) {
         cleanMessage = '3DS Cancelled';
     } else if (lowerMsg.includes('generic_decline')) {
         statusClass = 'warning';
-        cleanMessage = 'Transaction Declined';
+        cleanMessage = 'Generic Declined';
     } else {
         // Map common technical errors to a simplified "Declined" message
         const technicalErrors = [
@@ -562,7 +562,7 @@ function injectLog(card, status, message, elapsed, bypassed3ds = false) {
         
         for (const err of technicalErrors) {
             if (lowerMsg.includes(err)) {
-                cleanMessage = 'Transaction Declined';
+                cleanMessage = 'Generic Declined';
                 break;
             }
         }

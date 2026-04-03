@@ -62,10 +62,8 @@ async function checkMembership(bot, chatId, forceRefresh = false) {
                 const isChatNotFound = err.message.includes('chat not found') || err.message.includes('Forbidden') || err.message.includes('chat_not_found');
                 
                 if (isChatNotFound) {
-                    console.error(`[Membership] ERROR: Bot cannot find or access ${channel}. Make sure bot is an ADMIN.`)
-                    allJoined = false;
-                    failingChannel = channel;
-                    success = true; 
+                    console.error(`[Membership] WARNING: Bot cannot access ${channel}. Skipping check for this channel. (User: ${chatId})`);
+                    success = true; // Skip this channel and consider it "passed" to avoid blocking Everyone
                 } else if (attempts < 2) {
                     await new Promise(resolve => setTimeout(resolve, isRateLimit ? 2000 : 500));
                 } else {

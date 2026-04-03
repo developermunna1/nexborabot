@@ -144,7 +144,9 @@ app.post('/analyze-link', async (req, res) => {
         return res.status(400).json({ error: 'Invalid Stripe or Billing URL' });
     }
 
-    const EXTRACT_API = config.EXTRACT_API;
+    const db = readDB();
+    const settings = db.settings || {};
+    const EXTRACT_API = settings.extract_api || config.EXTRACT_API;
     console.log(`[Link Analysis] Processing: ${url}`);
 
     try {
@@ -725,8 +727,10 @@ app.post('/admin/get-settings', async (req, res) => {
     const settings = db.settings || { 
         api_key: config.API_KEY, 
         api_url: config.API_URL,
+        extract_api: config.EXTRACT_API,
         channels: config.CHANNELS
     };
+    if (!settings.extract_api) settings.extract_api = config.EXTRACT_API;
     if (!settings.channels) settings.channels = config.CHANNELS;
     res.json(settings);
   } catch (err) {
@@ -736,14 +740,16 @@ app.post('/admin/get-settings', async (req, res) => {
 
 app.post('/admin/update-settings', async (req, res) => {
   try {
-    const { password, api_key, api_url, channels } = req.body;
+    const { password, api_key, api_url, extract_api, channels } = req.body;
     if (password !== ADMIN_PWD) return res.status(401).json({ error: 'Unauthorized' });
     
     const db = readDB();
     const oldSettings = db.settings || {};
     db.settings = { 
+        ...oldSettings,
         api_key: (api_key || '').trim(), 
         api_url: (api_url || '').trim(),
+        extract_api: (extract_api || '').trim(),
         channels: Array.isArray(channels) ? channels : (oldSettings.channels || config.CHANNELS)
     };
     

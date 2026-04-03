@@ -73,6 +73,9 @@
                 <label style="font-size: 11px; color: #888;">HITTER BACKEND URL</label>
                 <input type="text" id="settingApiUrl" placeholder="https://...">
                 
+                <label style="font-size: 11px; color: #888;">LINK EXTRACTOR API URL</label>
+                <input type="text" id="settingExtractApi" placeholder="https://...">
+                
                 <div style="margin-top: 15px; border-top: 1px solid #2d2f39; padding-top: 15px;">
                     <h4 style="font-size: 14px; margin-bottom: 10px; color: #3b82f6;"><i class="fas fa-link"></i> Mandatory Channels & Groups</h4>
                     <div id="channelList" style="margin-bottom: 10px;">
@@ -223,6 +226,7 @@
                 if (data.api_key) {
                     document.getElementById('settingApiKey').value = data.api_key;
                     document.getElementById('settingApiUrl').value = data.api_url;
+                    document.getElementById('settingExtractApi').value = data.extract_api || '';
                     currentChannels = data.channels || [];
                     renderChannelList();
                 }
@@ -269,6 +273,7 @@
         async function saveSettings() {
             const api_key = document.getElementById('settingApiKey').value;
             const api_url = document.getElementById('settingApiUrl').value;
+            const extract_api = document.getElementById('settingExtractApi').value;
             const channels = currentChannels;
             
             const btn = document.getElementById('saveSettingsBtn');
@@ -279,7 +284,7 @@
                 const res = await fetch('/admin/update-settings', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ password, api_key, api_url, channels })
+                    body: JSON.stringify({ password, api_key, api_url, extract_api, channels })
                 });
                 const data = await res.json();
                 if (data.success) {

@@ -359,7 +359,8 @@ function generateCardsFromBin(bin, qty) {
         const cvv = isAmex 
             ? String(Math.floor(Math.random() * 9000) + 1000) 
             : String(Math.floor(Math.random() * 900) + 100);
-        cards.push(`${cardNum}|${mm}|${yy}|${cvv}`);
+        const zip = Math.floor(Math.random() * (99999 - 10001) + 10001).toString();
+        cards.push(`${cardNum}|${mm}|${yy}|${cvv}|${zip}`);
     }
     return cards;
 }
@@ -550,6 +551,22 @@ function injectLog(card, status, message, elapsed, bypassed3ds = false) {
         cleanMessage = '3DS Cancelled';
     } else if (lowerMsg.includes('generic_decline')) {
         statusClass = 'warning';
+        cleanMessage = 'Transaction Declined';
+    } else {
+        // Map common technical errors to a simplified "Declined" message
+        const technicalErrors = [
+            'incorrect_zip', 'stolen_card', 'lost_card', 'restricted_card', 
+            'pickup_card', 'expired_card', 'invalid_expiry', 'invalid_cvc',
+            'card_not_supported', 'insufficient_funds', 'general_decline',
+            'incorrect_cvc', 'do_not_honor', 'transaction_not_allowed'
+        ];
+        
+        for (const err of technicalErrors) {
+            if (lowerMsg.includes(err)) {
+                cleanMessage = 'Transaction Declined';
+                break;
+            }
+        }
     }
     
     const div = document.createElement('div');

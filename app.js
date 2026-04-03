@@ -359,8 +359,7 @@ function generateCardsFromBin(bin, qty) {
         const cvv = isAmex 
             ? String(Math.floor(Math.random() * 9000) + 1000) 
             : String(Math.floor(Math.random() * 900) + 100);
-        const zip = Math.floor(Math.random() * (99999 - 10001) + 10001).toString();
-        cards.push(`${cardNum}|${mm}|${yy}|${cvv}|${zip}`);
+        cards.push(`${cardNum}|${mm}|${yy}|${cvv}`);
     }
     return cards;
 }

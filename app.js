@@ -356,7 +356,9 @@ function generateCardsFromBin(bin, qty) {
         
         const mm = String(Math.floor(Math.random() * 12) + 1).padStart(2, '0');
         const yy = Math.floor(Math.random() * (2032 - 2025) + 2025).toString().slice(-2);
-        const cvv = String(Math.floor(Math.random() * 900) + 100);
+        const cvv = isAmex 
+            ? String(Math.floor(Math.random() * 9000) + 1000) 
+            : String(Math.floor(Math.random() * 900) + 100);
         cards.push(`${cardNum}|${mm}|${yy}|${cvv}`);
     }
     return cards;
@@ -502,7 +504,7 @@ function processHitResult(card, res, elapsed, count, total) {
         stats.bypassed++;
     }
 
-    injectLog(card, status, message, elapsed, res.bypassed_3ds);
+    injectLog(res.card || card, status, message, elapsed, res.bypassed_3ds);
     updateStatsUI();
 }
 
@@ -516,7 +518,7 @@ function showSuccessCard(card, res, count, total) {
     successCard.classList.remove('hidden');
     document.getElementById('successAmount').innerText = res.amount || analyzedData.amount || 'Unknown';
     document.getElementById('successSite').innerText = res.site || analyzedData.site || 'Stripe Checkout';
-    document.getElementById('successCardNum').innerText = maskCard(card);
+    document.getElementById('successCardNum').innerText = maskCard(res.card || card);
     document.getElementById('successAttempts').innerText = `${count} / ${total}`;
 }
 

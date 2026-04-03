@@ -15,7 +15,7 @@ module.exports = {
   NOTIFY_CHAT_ID: '-1003721268860',
   
   // --- MANDATORY CHANNELS ---
-  CHANNELS: ['@bdhitlog', '@hitterlite', '@Nexvora_Official1'],
+  CHANNELS: ['-1003721268860', '@bdhitlog', '@hitterlite', '@Nexvora_Official1'],
   
   // --- ADMIN CONFIG ---
   ADMIN_PWD: 'admin123'

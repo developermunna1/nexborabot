@@ -43,9 +43,8 @@ const storage = {
                 if (!dbCache.redeem_codes) dbCache.redeem_codes = {};
                 console.log('[Storage] DB loaded from Firebase.');
             } else {
-                console.log('[Storage] Firebase DB empty. Initializing...');
+                console.log('[Storage] Firebase DB is empty or uninitialized. Using local defaults.');
                 await this.loadLocal();
-                await this.save(dbCache);
             }
             return dbCache;
         } catch (err) {

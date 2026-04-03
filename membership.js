@@ -31,6 +31,7 @@ async function checkMembership(bot, chatId, forceRefresh = false) {
 
     let allJoined = true;
     let failingChannel = null;
+    let lastStatus = 'unknown';
 
     for (const channelBody of CHANNELS) {
         let channel = channelBody;
@@ -41,7 +42,6 @@ async function checkMembership(bot, chatId, forceRefresh = false) {
         // Retry Logic (Max 2 attempts)
         let success = false;
         let attempts = 0;
-        let lastStatus = 'unknown';
 
         while (attempts < 2 && !success) {
             try {

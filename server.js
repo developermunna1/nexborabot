@@ -292,13 +292,17 @@ app.post('/send-otp', async (req, res) => {
     const message = `🔐 <b>Verification Code</b>\n\nYour OTP for <b>Auto Hitter App</b> is: <code>${otp}</code>\n\nDon't share this code with anyone.`;
     
     try {
-        const bot = require('./bot'); // Ensure bot is available
-        await bot.telegram.sendMessage(chatId, message, { parse_mode: 'HTML' });
+        const botToken = config.LOGIN_OTP_BOT_TOKEN;
+        await axios.post(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+            chat_id: chatId,
+            text: message,
+            parse_mode: 'HTML'
+        });
         console.log(`[OTP] Sent to ${chatId}`);
         res.json({ success: true });
     } catch (err) {
         console.error('[OTP] Failed to send:', err.message);
-        res.status(500).json({ error: 'Failed to send OTP. Make sure you started the bot!' });
+        res.status(500).json({ error: 'Failed to send OTP' });
     }
 });
 

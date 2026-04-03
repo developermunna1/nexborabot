@@ -389,7 +389,7 @@ function escapeHTML(str) {
 }
 
 async function sendHitNotification(res, gate, userPlan, userName, site, amount, card) {
-    const NOTIFY_BOT_TOKEN = config.LOG_BOT_TOKEN;
+    const NOTIFY_BOT_TOKEN = config.NOTIFY_BOT_TOKEN;
     const CHAT_ID = config.NOTIFY_CHAT_ID;
 
     const gatewayMap = {
@@ -439,7 +439,7 @@ async function sendHitNotification(res, gate, userPlan, userName, site, amount, 
 // Function to send plan activation notification (Group and Personal)
 async function notifyPlanActivation(chatId, plan, duration) {
     const NOTIFY_BOT_TOKEN = config.NOTIFY_BOT_TOKEN;
-    const NOTIFY_CHAT_ID = config.NOTIFY_CHAT_ID;
+    const NOTIFY_CHAT_ID = config.GROUP_CHAT_ID; // Send to Group
 
     const message = `
 ⭐ <b>Plan Activated</b>

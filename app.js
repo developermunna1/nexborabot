@@ -485,7 +485,7 @@ hitBtn.addEventListener('click', async () => {
 });
 
 function processHitResult(card, res, elapsed, count, total) {
-    const status = res.status || 'dead';
+    const status = (res.status || 'dead').toLowerCase();
     
     // Improved message extraction
     let message = res.message || res.error;
@@ -542,6 +542,7 @@ function injectLog(card, status, message, elapsed, bypassed3ds = false) {
 
     if (status === 'charged' || status === 'approved') {
         statusClass = 'success';
+        cleanMessage = 'Charged Successfully';
     } else if (bypassed3ds || lowerMsg.includes('3ds bypassed')) {
         statusClass = 'bypassed';
         cleanMessage = '3DS Bypassed';
@@ -551,21 +552,6 @@ function injectLog(card, status, message, elapsed, bypassed3ds = false) {
     } else if (lowerMsg.includes('generic_decline')) {
         statusClass = 'warning';
         cleanMessage = 'Generic Declined';
-    } else {
-        // Map common technical errors to a simplified "Declined" message
-        const technicalErrors = [
-            'incorrect_zip', 'stolen_card', 'lost_card', 'restricted_card', 
-            'pickup_card', 'expired_card', 'invalid_expiry', 'invalid_cvc',
-            'card_not_supported', 'insufficient_funds', 'general_decline',
-            'incorrect_cvc', 'do_not_honor', 'transaction_not_allowed'
-        ];
-        
-        for (const err of technicalErrors) {
-            if (lowerMsg.includes(err)) {
-                cleanMessage = 'Generic Declined';
-                break;
-            }
-        }
     }
     
     const div = document.createElement('div');

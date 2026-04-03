@@ -359,7 +359,8 @@ app.post('/verify-membership', async (req, res) => {
             const cached = membership.membershipCache?.get(chatId.toString());
             let errorMsg = 'You have not joined all channels yet.';
             if (cached && cached.failingChannel) {
-                errorMsg = `Please join the channel: ${cached.failingChannel}`;
+                const debugStatus = cached.status_detail ? ` (Status: ${cached.status_detail})` : '';
+                errorMsg = `Please join the channel: ${cached.failingChannel}${debugStatus}`;
             }
             res.status(400).json({ error: errorMsg });
         }

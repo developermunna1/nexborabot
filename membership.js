@@ -48,28 +48,31 @@ async function checkMembership(bot, chatId, forceRefresh = false) {
                 const member = await bot.telegram.getChatMember(channel, chatId);
                 lastStatus = member.status;
                 
+                console.log(`[Membership] User ${chatId} status in ${channel}: ${member.status}`);
+
                 // Allow: creator, administrator, member, restricted (restricted are still members)
                 if (['left', 'kicked'].includes(member.status)) {
                     console.warn(`[Membership] User ${chatId} is NOT in ${channel} (Status: ${member.status})`);
                     allJoined = false;
                 } else {
-                    console.log(`[Membership] User ${chatId} joined ${channel} (Status: ${member.status})`);
+                    // Success! User is in the channel.
                 }
                 success = true; 
             } catch (err) {
                 attempts++;
                 const isRateLimit = err.message.includes('429') || err.message.toLowerCase().includes('too many requests');
-                const isChatNotFound = err.message.includes('chat not found') || err.message.includes('Forbidden') || err.message.includes('chat_not_found');
+                const isChatNotFound = err.message.includes('chat not found') || err.message.includes('Forbidden') || err.message.includes('chat_not_found') || err.message.includes('not found');
                 
                 if (isChatNotFound) {
-                    console.error(`[Membership] WARNING: Bot cannot access ${channel}. Skipping check for this channel. (User: ${chatId})`);
+                    console.error(`[Membership] WARNING: Bot cannot access ${channel} (Error: ${err.message}). Skipping check for this channel.`);
                     success = true; // Skip this channel and consider it "passed" to avoid blocking Everyone
                 } else if (attempts < 2) {
                     await new Promise(resolve => setTimeout(resolve, isRateLimit ? 2000 : 500));
                 } else {
-                    console.error(`[Membership] Verification FAILED for ${channel} after 2 attempts: ${err.message}`);
-                    allJoined = false;
-                    failingChannel = channel;
+                    console.error(`[Membership] Verification FAILED for ${channel} after 2 attempts (Error: ${err.message}). Skipping...`);
+                    // If even after retries we can't check, DON'T block the user.
+                    // Instead, just log it.
+                    success = true; 
                 }
             }
         }
@@ -84,7 +87,8 @@ async function checkMembership(bot, chatId, forceRefresh = false) {
     membershipCache.set(chatId.toString(), {
         status: allJoined,
         timestamp: Date.now(),
-        failingChannel: allJoined ? null : failingChannel
+        failingChannel: allJoined ? null : failingChannel,
+        status_detail: lastStatus // Store for debugging
     });
 
     return allJoined;

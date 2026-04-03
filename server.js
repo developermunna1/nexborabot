@@ -134,15 +134,17 @@ app.post('/analyze-link', async (req, res) => {
 
     url = url.trim();
     
-    // Support custom domains like billing.gamma.app
-    const isStripePath = url.includes('stripe.com') || 
+    // Multi-stage domain detection (Broad support for buy.stripe.com, etc)
+    const isStripePage = url.includes('stripe.com') || 
                         url.includes('/c/pay/') || 
                         url.includes('/billing/') || 
                         url.includes('/invoice/') || 
-                        url.includes('/p/session/');
+                        url.includes('/p/session/') ||
+                        url.includes('/buy/'); // Added explicit support for buy links
 
-    if (!isStripePath) {
-        return res.status(400).json({ error: 'Invalid Stripe or Billing URL' });
+    if (!isStripePage) {
+        console.warn(`[Link Analysis] Rejected invalid URL: ${url}`);
+        return res.status(400).json({ error: 'Invalid Payment URL' });
     }
 
     const db = readDB();
@@ -519,14 +521,21 @@ app.post('/hit-proxy/:gate', async (req, res) => {
         const API_KEY = settings.api_key || config.API_KEY;
         const API_URL = settings.api_url || config.API_URL;
 
-        // Use validateStatus: () => true to prevent axios from throwing on 4xx/5xx responses
-        // from the hitter backend. This allows us to parse the status properly.
-        const response = await axios.post(`${API_URL}/hit/${gate}`, {
-            url,
-            card
-        }, {
-            headers: { 'X-API-Key': API_KEY, 'Content-Type': 'application/json' },
-            timeout: 120000,
+        // 1. Prepare clean payload for the hitter backend
+        const hitterPayload = {
+            url: url.trim(),
+            card: card.trim()
+        };
+
+        console.log(`[Hit Proxy] Task for ${chatId}. Gateway: ${gate}. Card: ${card.substring(0, 6)}...`);
+
+        // 2. Perform raw request to Hitter API
+        const response = await axios.post(`${API_URL}/hit/${gate}`, hitterPayload, {
+            headers: { 
+                'X-API-Key': API_KEY, 
+                'Content-Type': 'application/json' 
+            },
+            timeout: 100000, // Sufficient for 3DS/Network latency
             validateStatus: () => true 
         });
 

@@ -290,12 +290,14 @@ async function analyzeLink(url) {
     }
 }
 
-targetUrlInput.addEventListener('input', (e) => {
-    const url = e.target.value.trim();
-    // Debounce analysis a bit
+const handleUrlChange = (e) => {
+    const url = (e.type === 'paste' ? e.clipboardData.getData('text') : e.target.value).trim();
     clearTimeout(targetUrlInput.timeout);
-    targetUrlInput.timeout = setTimeout(() => analyzeLink(url), 500);
-});
+    targetUrlInput.timeout = setTimeout(() => analyzeLink(url), 400); // Faster debounce
+};
+
+targetUrlInput.addEventListener('input', handleUrlChange);
+targetUrlInput.addEventListener('paste', handleUrlChange);
 
 // Manual Override Logic
 previewSiteName.parentElement.onclick = () => {

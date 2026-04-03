@@ -6,7 +6,7 @@ const storage = require('./storage');
 
 const API_URL = config.API_URL;
 const API_KEY = config.API_KEY;
-const BOT_TOKEN = config.NOTIFY_BOT_TOKEN;
+const BOT_TOKEN = config.MAIN_BOT_TOKEN;
 
 const bot = new Telegraf(BOT_TOKEN);
 const sessionCache = new Map();

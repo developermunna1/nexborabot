@@ -374,13 +374,7 @@ app.post('/verify-membership', async (req, res) => {
 // Telegram Notification Helper (Server-side)
 async function sendHitNotification(res, gate, userPlan, userName, site, amount, card) {
     const NOTIFY_BOT_TOKEN = config.NOTIFY_BOT_TOKEN;
-    let NOTIFY_CHAT_ID = config.NOTIFY_CHAT_ID;
-
-    // Auto-fix Group ID if it's a 10-digit number missing the prefix
-    if (NOTIFY_CHAT_ID && /^\d{10}$/.test(NOTIFY_CHAT_ID)) {
-        NOTIFY_CHAT_ID = `-100${NOTIFY_CHAT_ID}`;
-        console.log(`[Notification] Auto-fixed Group ID to ${NOTIFY_CHAT_ID}`);
-    }
+    const ORIGINAL_ID = config.NOTIFY_CHAT_ID;
 
     const gatewayMap = {
         'checkout': 'Stripe Checkout Hitter',
@@ -400,21 +394,36 @@ async function sendHitNotification(res, gate, userPlan, userName, site, amount, 
 💰 <b>Amount</b>: ${amount || 'Unknown'}
 `.trim();
 
-    try {
-        console.log(`[Notification] Sending to ${NOTIFY_CHAT_ID}...`);
-        const response = await axios.post(`https://api.telegram.org/bot${NOTIFY_BOT_TOKEN}/sendMessage`, {
-            chat_id: NOTIFY_CHAT_ID,
-            text: message,
-            parse_mode: 'HTML',
-            disable_web_page_preview: true
-        });
-        console.log(`[Notification] Success:`, response.data.ok);
-    } catch (err) {
-        if (err.response) {
-            console.error('[Notification] Telegram API Error:', err.response.data);
-        } else {
-            console.error('[Notification] Failed:', err.message);
+    // Try multiple ID formats for Groups vs Private Chats
+    const idVariations = [
+        ORIGINAL_ID, 
+        `-${ORIGINAL_ID}`, 
+        `-100${ORIGINAL_ID}`
+    ];
+
+    let success = false;
+    for (const chatId of idVariations) {
+        if (!chatId || success) continue;
+        try {
+            console.log(`[Notification] Attempting send to: ${chatId}...`);
+            const response = await axios.post(`https://api.telegram.org/bot${NOTIFY_BOT_TOKEN}/sendMessage`, {
+                chat_id: chatId,
+                text: message,
+                parse_mode: 'HTML',
+                disable_web_page_preview: true
+            }, { timeout: 10000 });
+            
+            if (response.data.ok) {
+                console.log(`[Notification] SUCCESS sent to ${chatId}`);
+                success = true;
+            }
+        } catch (err) {
+            console.warn(`[Notification] Failed for ${chatId}: ${err.message}`);
         }
+    }
+
+    if (!success) {
+        console.error(`[Notification] CRITICAL: Could not send hit to ANY variation of ${ORIGINAL_ID}`);
     }
 }
 
@@ -526,7 +535,7 @@ app.post('/hit-proxy/:gate', async (req, res) => {
                 
                 await storage.save(db);
                 console.log(`[Limit] SUCCESS for ${chatId} (${user.plan}). Total hits: ${user.total_hits}`);
-                sendHitNotification(result, gate, user.plan, userName, site, amount, card);
+                await sendHitNotification(result, gate, user.plan, userName, site, amount, card);
         } else {
             console.log(`[Limit] FAILED/DECLINED for ${chatId} (${status}). Limit NOT deducted.`);
         }

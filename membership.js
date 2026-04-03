@@ -69,10 +69,10 @@ async function checkMembership(bot, chatId, forceRefresh = false) {
                 } else if (attempts < 2) {
                     await new Promise(resolve => setTimeout(resolve, isRateLimit ? 2000 : 500));
                 } else {
-                    console.error(`[Membership] Verification FAILED for ${channel} after 2 attempts (Error: ${err.message}). Skipping...`);
-                    // If even after retries we can't check, DON'T block the user.
-                    // Instead, just log it.
+                    console.error(`[Membership] Skip ${channel} after error: ${err.message}`);
+                    // Ensure the user is NOT blocked by any technical error
                     success = true; 
+                    // We don't set allJoined = false here, so it stays true unless explicitly 'left'
                 }
             }
         }

@@ -371,7 +371,7 @@ app.post('/verify-membership', async (req, res) => {
         }
     } catch (err) {
         console.error('[Verify] Membership check system error:', err.message);
-        res.status(500).json({ error: 'Verification system error. Try again later.' });
+        res.status(500).json({ error: `Verification system error: ${err.message}` });
     }
 });
 

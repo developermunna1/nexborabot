@@ -326,7 +326,7 @@ app.post('/verify-membership', async (req, res) => {
     const bot = require('./bot');
     
     try {
-        const allJoined = await membership.checkMembership(bot, chatId);
+        const allJoined = await membership.checkMembership(bot, chatId, true);
         
         if (allJoined) {
             const wasVerified = user.isVerified;
@@ -354,7 +354,12 @@ app.post('/verify-membership', async (req, res) => {
             await storage.save(db);
             res.json({ success: true, message: 'Verification successful!' });
         } else {
-            res.status(400).json({ error: 'You have not joined all channels yet.' });
+            const cached = membership.membershipCache?.get(chatId.toString());
+            let errorMsg = 'You have not joined all channels yet.';
+            if (cached && cached.failingChannel) {
+                errorMsg = `Please join the channel: ${cached.failingChannel}`;
+            }
+            res.status(400).json({ error: errorMsg });
         }
     } catch (err) {
         console.error('[Verify] Membership check system error:', err.message);

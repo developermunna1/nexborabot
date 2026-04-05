@@ -114,13 +114,15 @@ async function scrapeStripeInfo(url) {
                             html.match(/<title>([^<]+)<\/title>/i);
             const ogDesc = html.match(/<meta[^>]*property="og:description"[^>]*content="([^"]+)"/i) ||
                            html.match(/<meta[^>]*name="description"[^>]*content="([^"]+)"/i);
+            const ogSite = html.match(/<meta[^>]*property="og:site_name"[^>]*content="([^"]+)"/i);
 
             if (ogTitle && site === 'Stripe Page') {
                 let potentialSite = ogTitle[1].replace(/Pay /i, '').replace(/ \| Stripe/gi, '').replace('Stripe:', '').trim();
-                // Avoid using generic "Checkout" as the site name
-                if (potentialSite.toLowerCase() !== 'checkout' && potentialSite.toLowerCase() !== 'stripe') {
+                if (potentialSite.toLowerCase() !== 'checkout' && potentialSite.toLowerCase() !== 'stripe' && potentialSite !== 'Title') {
                     site = potentialSite;
                 }
+            } else if (ogSite && site === 'Stripe Page') {
+                site = ogSite[1].trim();
             }
 
             if (ogDesc && amount === 'Unknown') {
@@ -130,7 +132,22 @@ async function scrapeStripeInfo(url) {
             }
         }
 
-        // --- STRATEGY 4: RAW BODY PATTERN (Final Resort) ---
+        // --- STRATEGY 3: JSON-LD ---
+        if (amount === 'Unknown') {
+            const jsonLdMatch = html.match(/<script type="application\/ld\+json">([\s\S]+?)<\/script>/i);
+            if (jsonLdMatch) {
+                try {
+                    const data = JSON.parse(jsonLdMatch[1]);
+                    if (data.name && site === 'Stripe Page') site = data.name;
+                    const offer = Array.isArray(data.offers) ? data.offers[0] : data.offers;
+                    if (offer && offer.price) {
+                        amount = `${offer.priceCurrency || ''} ${offer.price}`.trim();
+                    }
+                } catch (e) {}
+            }
+        }
+
+        // --- STRATEGY 4: RAW BODY PATTERN ---
         if (amount === 'Unknown') {
             const rawAmtMatch = html.match(/([$€£¥৳]\s?\d{1,5}(?:\.\d{2})?)/);
             if (rawAmtMatch) {
@@ -139,13 +156,12 @@ async function scrapeStripeInfo(url) {
         }
 
         // Final cleanup for Merchant Name
-        site = site.replace(/Back to/gi, '').replace(/Back/gi, '').replace(/Pay /gi, '').replace(/ to /gi, ' ').replace(/\| Stripe/gi, '').replace(/Stripe/gi, '').trim() || 'Stripe Merchant';
-        if (site.toLowerCase() === 'checkout' || site.toLowerCase() === 'payment') site = 'Stripe Merchant';
+        site = site.replace(/Back to/gi, '').replace(/Back/gi, '').replace(/Pay /gi, '').replace(/ to /gi, ' ').replace(/\| Stripe/gi, '').replace(/Stripe/gi, '').replace('Title', '').trim() || 'Stripe Merchant';
+        if (site.toLowerCase() === 'checkout' || site.toLowerCase() === 'payment' || site === 'Title') site = 'Stripe Merchant';
         if (site.length > 25) site = site.substring(0, 22) + '...';
         
         // Clean up amount (Extract ONLY numeric value and decimals to avoid double currency symbols in UI)
         if (amount !== 'Unknown') {
-            // Keep only digits, dots and commas
             const numericValue = amount.match(/(\d+([.,]\d{2})?)/);
             if (numericValue) {
                 amount = numericValue[0];
@@ -154,7 +170,7 @@ async function scrapeStripeInfo(url) {
             }
         }
 
-        console.log(`[Scraper] Result: ${site} - ${amount}`);
+        console.log(`[Scraper] Final Result: ${site} - ${amount}`);
         return { site, amount };
     } catch (err) {
         console.error('[Scraper Error]:', err.message);

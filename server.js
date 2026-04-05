@@ -71,52 +71,56 @@ async function scrapeStripeInfo(url) {
         });
         const html = response.data;
 
-        let site = 'Stripe Page';
-        let amount = 'Unknown';
-        let currency = '';
-
-        // --- STRATEGY 1: PARSE window.__INITIAL_STATE__ (Most Precise) ---
-        const stateMatch = html.match(/window\.__INITIAL_STATE__\s*=\s*({.+?});/s) || 
-                          html.match(/window\.StripeCheckout\s*=\s*({.+?});/s);
+        // --- STRATEGY 0: HIGH-PRECISION DESCRIPTION PARSE ---
+        const ogDescMatch = html.match(/<meta[^>]*property="og:description"[^>]*content="Pay ([^ ]+) to ([^"]+)"/i) ||
+                            html.match(/<meta[^>]*name="description"[^>]*content="Pay ([^ ]+) to ([^"]+)"/i);
         
-        if (stateMatch) {
-            try {
-                const state = JSON.parse(stateMatch[1]);
-                console.log(`[Scraper] Found Initial State JSON`);
-                
-                // Common paths for merchant name
-                const merchant = state.checkout?.business_name || 
-                               state.merchant_name || 
-                               state.invoice?.business_name || 
-                               state.account_name;
-                
-                if (merchant) site = merchant;
+        if (ogDescMatch) {
+            console.log(`[Scraper] Precision Match Found: ${ogDescMatch[1]} to ${ogDescMatch[2]}`);
+            amount = ogDescMatch[1].trim();
+            site = ogDescMatch[2].trim();
+        }
 
-                // Common paths for amount
-                const amt = state.checkout?.total_amount_display || 
-                            state.amount_total_display || 
-                            state.invoice?.total_display ||
-                            state.amount_formatted;
-                
-                if (amt) amount = amt;
-            } catch (e) {
-                console.warn(`[Scraper] Failed to parse state JSON: ${e.message}`);
+        // --- STRATEGY 1: PARSE window.__INITIAL_STATE__ (Deepsite Search) ---
+        if (site === 'Stripe Page' || amount === 'Unknown') {
+            const stateMatch = html.match(/window\.__INITIAL_STATE__\s*=\s*({.+?});/s) || 
+                              html.match(/window\.StripeCheckout\s*=\s*({.+?});/s);
+            
+            if (stateMatch) {
+                try {
+                    const state = JSON.parse(stateMatch[1]);
+                    const merchant = state.checkout?.business_name || 
+                                   state.merchant_name || 
+                                   state.invoice?.business_name || 
+                                   state.account_name ||
+                                   state.merchant_details?.name;
+                    
+                    if (merchant && merchant.toLowerCase() !== 'checkout') site = merchant;
+
+                    const amt = state.checkout?.total_amount_display || 
+                                state.amount_total_display || 
+                                state.invoice?.total_display ||
+                                state.amount_formatted;
+                    
+                    if (amt) amount = amt;
+                } catch (e) {}
             }
         }
 
-        // --- STRATEGY 2: META TAGS & TITLE (Reliable Fallback) ---
+        // --- STRATEGY 2: META TAGS & TITLE ---
         if (site === 'Stripe Page' || amount === 'Unknown') {
             const ogTitle = html.match(/<meta[^>]*property="og:title"[^>]*content="([^"]+)"/i) ||
                             html.match(/<meta[^>]*name="twitter:title"[^>]*content="([^"]+)"/i) ||
                             html.match(/<title>([^<]+)<\/title>/i);
             const ogDesc = html.match(/<meta[^>]*property="og:description"[^>]*content="([^"]+)"/i) ||
                            html.match(/<meta[^>]*name="description"[^>]*content="([^"]+)"/i);
-            const siteName = html.match(/<meta[^>]*property="og:site_name"[^>]*content="([^"]+)"/i);
 
             if (ogTitle && site === 'Stripe Page') {
-                site = ogTitle[1].replace(/Pay /i, '').replace(/ \| Stripe/gi, '').replace('Stripe:', '').trim();
-            } else if (siteName && site === 'Stripe Page') {
-                site = siteName[1].trim();
+                let potentialSite = ogTitle[1].replace(/Pay /i, '').replace(/ \| Stripe/gi, '').replace('Stripe:', '').trim();
+                // Avoid using generic "Checkout" as the site name
+                if (potentialSite.toLowerCase() !== 'checkout' && potentialSite.toLowerCase() !== 'stripe') {
+                    site = potentialSite;
+                }
             }
 
             if (ogDesc && amount === 'Unknown') {
@@ -126,23 +130,9 @@ async function scrapeStripeInfo(url) {
             }
         }
 
-        // --- STRATEGY 3: JSON-LD ---
-        if (amount === 'Unknown') {
-            const jsonLdMatch = html.match(/<script type="application\/ld\+json">([\s\S]+?)<\/script>/i);
-            if (jsonLdMatch) {
-                try {
-                    const data = JSON.parse(jsonLdMatch[1]);
-                    if (data.name && site === 'Stripe Page') site = data.name;
-                    if (data.offers && data.offers.price) {
-                        amount = `${data.offers.priceCurrency || ''} ${data.offers.price}`.trim();
-                    }
-                } catch (e) {}
-            }
-        }
-
         // --- STRATEGY 4: RAW BODY PATTERN (Final Resort) ---
         if (amount === 'Unknown') {
-            const rawAmtMatch = html.match(/([$€£¥৳]\s?\d{1,5}(?:[.,]\d{2})?)/);
+            const rawAmtMatch = html.match(/([$€£¥৳]\s?\d{1,5}(?:\.\d{2})?)/);
             if (rawAmtMatch) {
                 amount = rawAmtMatch[1].trim();
             }
@@ -150,11 +140,12 @@ async function scrapeStripeInfo(url) {
 
         // Final cleanup
         site = site.replace(/\| Stripe/gi, '').replace(/Stripe/gi, '').trim() || 'Stripe Page';
+        if (site.toLowerCase() === 'checkout' || site.toLowerCase() === 'payment') site = 'Stripe Merchant';
         if (site.length > 25) site = site.substring(0, 22) + '...';
         
-        // Clean up amount (e.g. remove multiple currencies if detected)
+        // Clean up amount (Remove extra currency symbols to avoid double display)
         if (amount !== 'Unknown') {
-            amount = amount.replace(/Pay /gi, '').trim();
+            amount = amount.replace(/Pay /gi, '').replace(/[$€£¥৳]/g, '').trim();
         }
 
         console.log(`[Scraper] Result: ${site} - ${amount}`);

@@ -104,15 +104,19 @@ async function scrapeStripeInfo(url) {
             }
         }
 
-        // --- STRATEGY 2: META TAGS (Reliable Fallback) ---
+        // --- STRATEGY 2: META TAGS & TITLE (Reliable Fallback) ---
         if (site === 'Stripe Page' || amount === 'Unknown') {
             const ogTitle = html.match(/<meta[^>]*property="og:title"[^>]*content="([^"]+)"/i) ||
-                            html.match(/<meta[^>]*name="twitter:title"[^>]*content="([^"]+)"/i);
+                            html.match(/<meta[^>]*name="twitter:title"[^>]*content="([^"]+)"/i) ||
+                            html.match(/<title>([^<]+)<\/title>/i);
             const ogDesc = html.match(/<meta[^>]*property="og:description"[^>]*content="([^"]+)"/i) ||
                            html.match(/<meta[^>]*name="description"[^>]*content="([^"]+)"/i);
+            const siteName = html.match(/<meta[^>]*property="og:site_name"[^>]*content="([^"]+)"/i);
 
             if (ogTitle && site === 'Stripe Page') {
-                site = ogTitle[1].replace(/Pay /i, '').replace(/ \| Stripe/gi, '').trim();
+                site = ogTitle[1].replace(/Pay /i, '').replace(/ \| Stripe/gi, '').replace('Stripe:', '').trim();
+            } else if (siteName && site === 'Stripe Page') {
+                site = siteName[1].trim();
             }
 
             if (ogDesc && amount === 'Unknown') {
@@ -128,11 +132,19 @@ async function scrapeStripeInfo(url) {
             if (jsonLdMatch) {
                 try {
                     const data = JSON.parse(jsonLdMatch[1]);
-                    if (data.name) site = data.name;
+                    if (data.name && site === 'Stripe Page') site = data.name;
                     if (data.offers && data.offers.price) {
                         amount = `${data.offers.priceCurrency || ''} ${data.offers.price}`.trim();
                     }
                 } catch (e) {}
+            }
+        }
+
+        // --- STRATEGY 4: RAW BODY PATTERN (Final Resort) ---
+        if (amount === 'Unknown') {
+            const rawAmtMatch = html.match(/([$€£¥৳]\s?\d{1,5}(?:[.,]\d{2})?)/);
+            if (rawAmtMatch) {
+                amount = rawAmtMatch[1].trim();
             }
         }
 

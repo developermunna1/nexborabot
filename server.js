@@ -57,32 +57,53 @@ async function checkPlanExpiry(chatId, user) {
   return false;
 }
 
-// Advanced Stripe Scraper (Maximum Reliability)
-// Advanced Stripe Scraper (Super Scrapper with API Emulation)
+// --- STRIPE XOR-5 DECODER (Reverse Engineered) ---
+function decodeStripeHash(encodedHash) {
+    try {
+        if (!encodedHash) return null;
+        const decodedBuffer = Buffer.from(decodeURIComponent(encodedHash), 'base64').toString('binary');
+        let result = "";
+        for (let i = 0; i < decodedBuffer.length; i++) {
+            result += String.fromCharCode(5 ^ decodedBuffer.charCodeAt(i));
+        }
+        return JSON.parse(result.trim());
+    } catch (e) { return null; }
+}
+
+// Master Stripe Scraper (Maximum Precision using XOR-5 Decoding)
 async function scrapeStripeInfo(url) {
     try {
-        console.log(`[Scraper] Analyzing: ${url}`);
-        const response = await axios.get(url, {
-            headers: { 
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            },
-            timeout: 10000
-        });
-        const html = response.data;
-
+        console.log(`[Scraper] Analyzing: ${url.substring(0, 60)}...`);
         let site = 'Stripe Merchant';
         let amount = 'Unknown';
+        let pk = null;
 
-        // --- STRATEGY 1: STRIPE INTERNAL API EMULATION (Ultimate Scrapper) ---
-        // Extract Session ID and Publishable Key (Deep Search)
-        const sessionIdMatch = url.match(/(cs_live_[a-zA-Z0-9]+)/) || html.match(/(cs_live_[a-zA-Z0-9]+)/);
-        const pkKeyMatch = html.match(/(pk_live_[a-zA-Z0-9]{30,})/);
+        // --- STEP 1: EXTRACT PK FROM URL HASH (Master Strategy) ---
+        const hash = url.split('#')[1];
+        if (hash) {
+            const decoded = decodeStripeHash(hash);
+            if (decoded && decoded.apiKey) {
+                pk = decoded.apiKey;
+                console.log(`[Scraper] Unlocked PK via XOR-5 Decoding.`);
+            }
+        }
 
-        if (sessionIdMatch && pkKeyMatch) {
+        // --- STEP 2: FALLBACK PK SEARCH IN HTML ---
+        let html = '';
+        if (!pk) {
+            const response = await axios.get(url, {
+                headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
+                timeout: 8000
+            });
+            html = response.data;
+            const pkKeyMatch = html.match(/(pk_live_[a-zA-Z0-9]{30,})/);
+            if (pkKeyMatch) pk = pkKeyMatch[1];
+        }
+
+        // --- STEP 3: EMULATE STRIPE API ---
+        const sessionIdMatch = url.match(/(cs_live_[a-zA-Z0-9]+)/);
+        if (pk && sessionIdMatch) {
             const sid = sessionIdMatch[1];
-            const pk = pkKeyMatch[1];
-            console.log(`[Scraper] SID: ${sid.substring(0, 10)}... | PK Found`);
-
             try {
                 const initResponse = await axios.post(`https://api.stripe.com/v1/payment_pages/${sid}/init`, 
                     `key=${pk}&eid=NA&browser_locale=en-US&redirect_type=url`, 
@@ -100,25 +121,27 @@ async function scrapeStripeInfo(url) {
                 if (initResponse.data) {
                     const d = initResponse.data;
                     site = d.account_settings?.display_name || d.display_name || d.merchant_name || site;
-                    
                     const amtDue = d.total_amount_display || d.amount_due_display || d.invoice?.total_display || d.amount_total_display;
                     if (amtDue) {
                         amount = amtDue;
                     } else if (d.total_amount) {
-                         const currency = (d.currency || 'usd').toUpperCase();
-                         amount = `${currency} ${(d.total_amount / 100).toFixed(2)}`;
-                    } else if (d.line_items && d.line_items[0]) {
-                        amount = d.line_items[0].amount_display || amount;
+                         amount = `${(d.currency || 'usd').toUpperCase()} ${(d.total_amount / 100).toFixed(2)}`;
                     }
                     console.log(`[Scraper] API Success: ${site} - ${amount}`);
                     if (site !== 'Stripe Merchant' && amount !== 'Unknown') return finalizeScrape(site, amount);
                 }
-            } catch (err) { console.warn(`[Scraper] API Emulation Failed: ${err.message}`); }
+            } catch (err) { console.warn(`[Scraper] API Failed: ${err.message}`); }
         }
 
-        // --- STRATEGY 2: HIGH-PRECISION DESCRIPTION PARSE ---
-        const ogDescMatch = html.match(/<meta[^>]*property="og:description"[^>]*content="Pay ([^ ]+) to ([^"]+)"/i) ||
-                            html.match(/<meta[^>]*name="description"[^>]*content="Pay ([^ ]+) to ([^"]+)"/i);
+        // --- FALLBACK STRATEGY (If API Fails) ---
+        if (!html) {
+            try {
+                const res = await axios.get(url, { headers: { 'User-Agent': 'Mozilla/5.0...' }, timeout: 5000 });
+                html = res.data;
+            } catch (e) { html = ''; }
+        }
+
+        const ogDescMatch = html.match(/<meta[^>]*property="og:description"[^>]*content="Pay ([^ ]+) to ([^"]+)"/i);
         if (ogDescMatch) {
             amount = ogDescMatch[1].trim();
             site = ogDescMatch[2].trim();

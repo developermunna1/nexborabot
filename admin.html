@@ -3,169 +3,466 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard - Stripe Auto Hitter</title>
-    <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <title>Admin Panel | Stripe Auto Hitter</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { background: #0f111a; color: white; font-family: 'Inter', sans-serif; }
-        .admin-container { max-width: 800px; margin: 40px auto; padding: 20px; }
-        .admin-card { background: #1a1c23; border: 1px solid #2d2f39; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
-        input, select { background: #0f111a; border: 1px solid #2d2f39; color: white; padding: 10px; border-radius: 6px; margin-bottom: 10px; width: 100%; }
-        button { background: #3b82f6; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: 600; }
-        .code-display { background: #064e3b; color: #34d399; padding: 15px; border-radius: 8px; font-weight: 700; font-size: 20px; text-align: center; margin-top: 10px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #2d2f39; font-size: 14px; }
-        .plan-tag { padding: 4px 8px; border-radius: 4px; font-size: 12px; text-transform: uppercase; }
-        .plan-tag.free { background: #374151; }
-        .plan-tag.silver { background: #1e3a8a; }
-        .plan-tag.gold { background: #92400e; }
+        :root {
+            --bg-main: #020617;
+            --bg-sidebar: #0f172a;
+            --bg-card: rgba(30, 41, 59, 0.5);
+            --accent-primary: #6366f1;
+            --accent-secondary: #8b5cf6;
+            --text-main: #f8fafc;
+            --text-dim: #94a3b8;
+            --border-color: rgba(255, 255, 255, 0.08);
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            background: var(--bg-main); 
+            color: var(--text-main); 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Sidebar Styles */
+        .sidebar {
+            position: fixed;
+            left: 0; top: 0; bottom: 0;
+            width: 260px;
+            background: var(--bg-sidebar);
+            border-right: 1px solid var(--border-color);
+            padding: 24px;
+            z-index: 100;
+            transition: all 0.3s ease;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 40px;
+            color: var(--accent-primary);
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            border-radius: 10px;
+            color: var(--text-dim);
+            text-decoration: none;
+            margin-bottom: 8px;
+            transition: all 0.2s;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .nav-item:hover, .nav-item.active {
+            background: rgba(99, 102, 241, 0.1);
+            color: var(--text-main);
+        }
+
+        .nav-item.active i { color: var(--accent-primary); }
+
+        /* Main Content */
+        .main-content {
+            margin-left: 260px;
+            padding: 32px;
+            max-width: 1400px;
+        }
+
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 32px;
+        }
+
+        .welcome-text h1 { font-size: 1.75rem; font-weight: 700; letter-spacing: -0.02em; }
+        .welcome-text p { color: var(--text-dim); font-size: 0.875rem; margin-top: 4px; }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 20px;
+            margin-bottom: 32px;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border-color);
+            padding: 24px;
+            border-radius: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .stat-info h3 { color: var(--text-dim); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+        .stat-info .value { font-size: 1.5rem; font-weight: 700; }
+        .stat-icon {
+            width: 48px; height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+        }
+
+        /* Glass Cards */
+        .glass-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border-color);
+            padding: 24px;
+            border-radius: 20px;
+            margin-bottom: 24px;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .card-header h2 { font-size: 1.1rem; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+
+        /* UI Elements */
+        input, select, textarea {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border-color);
+            color: white;
+            padding: 12px 16px;
+            border-radius: 10px;
+            width: 100%;
+            margin-bottom: 16px;
+            font-family: inherit;
+            transition: border 0.3s;
+        }
+
+        input:focus { outline: none; border-color: var(--accent-primary); }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: transform 0.2s, opacity 0.2s;
+            display: flex;
+            align-items: center; justify-content: center; gap: 8px;
+        }
+
+        .btn-primary:hover { transform: translateY(-2px); opacity: 0.9; }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Tables */
+        .table-container { overflow-x: auto; margin-top: 10px; }
+        table { width: 100%; border-collapse: separate; border-spacing: 0 8px; }
+        th { text-align: left; padding: 12px 16px; color: var(--text-dim); font-size: 0.75rem; text-transform: uppercase; }
+        td { padding: 16px; background: rgba(30, 41, 59, 0.3); border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); }
+        td:first-child { border-left: 1px solid var(--border-color); border-radius: 12px 0 0 12px; }
+        td:last-child { border-right: 1px solid var(--border-color); border-radius: 0 12px 12px 0; }
+
+        .status-badge {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .status-badge.free { background: rgba(148, 163, 184, 0.1); color: #94a3b8; }
+        .status-badge.silver { background: rgba(99, 102, 241, 0.1); color: #818cf8; }
+        .status-badge.gold { background: rgba(245, 158, 11, 0.1); color: #fbbf24; }
+
+        /* Login Overlay */
+        #loginOverlay {
+            position: fixed;
+            inset: 0;
+            background: var(--bg-main);
+            z-index: 1000;
+            display: flex;
+            align-items: center; justify-content: center;
+        }
+
+        .login-box { width: 400px; padding: 40px; background: var(--bg-sidebar); border-radius: 24px; border: 1px solid var(--border-color); text-align: center; }
+
+        .hidden { display: none !important; }
+
+        @media (max-width: 1024px) {
+            .sidebar { width: 80px; padding: 24px 10px; }
+            .sidebar span { display: none; }
+            .main-content { margin-left: 80px; }
+        }
     </style>
 </head>
 <body>
-    <div class="admin-container">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h1>Admin Dashboard</h1>
-            <button id="logoutBtn" class="hidden" onclick="logoutAdmin()" style="width: auto; padding: 8px 15px; background: #ef4444;">Logout</button>
-        </div>
-        
-        <div id="loginSection" class="admin-card">
-            <h3>Admin Login</h3>
-            <input type="password" id="adminPwd" placeholder="Enter Admin Password">
-            <button onclick="loadAdmin()">Login</button>
-        </div>
 
-        <div id="adminContent" class="hidden">
-            <!-- Stats Overview -->
-            <div class="admin-card" style="display: flex; justify-content: space-around; text-align: center;">
-                <div>
-                    <div style="font-size: 24px; font-weight: 700; color: #3b82f6;" id="statTotalUsers">0</div>
-                    <div style="font-size: 12px; color: #888;">TOTAL USERS</div>
-                </div>
-                <div>
-                    <div style="font-size: 24px; font-weight: 700; color: #10b981;" id="statPremiumUsers">0</div>
-                    <div style="font-size: 12px; color: #888;">PREMIUM USERS</div>
-                </div>
-                <div>
-                    <div style="font-size: 24px; font-weight: 700; color: #f59e0b;" id="statTotalHits">0</div>
-                    <div style="font-size: 12px; color: #888;">TOTAL HITS</div>
-                </div>
+    <div id="loginOverlay">
+        <div class="login-box">
+            <div class="logo" style="justify-content: center; margin-bottom: 24px;">
+                <i class="fas fa-shield-halved"></i>
+                <span>Admin Login</span>
             </div>
-
-            <div class="admin-card">
-                <h3>Generate Redeem Code (Standard 7-Day)</h3>
-                <select id="codePlan">
-                    <option value="silver">Silver Plan ($5)</option>
-                    <option value="gold">Gold Plan ($7)</option>
-                </select>
-                <button onclick="generateCode()">Generate Code</button>
-                <div id="codeResult" class="hidden">
-                    <div class="code-display" id="generatedCode"></div>
-                    <p style="font-size: 12px; margin-top: 5px; color: #888;">Share this code with the user.</p>
-                </div>
-            </div>
-
-            <div class="admin-card">
-                <h3 style="color: #ed8936;"><i class="fas fa-cogs"></i> System & API Configuration</h3>
-                <label style="font-size: 11px; color: #888;">HIT API KEY</label>
-                <input type="text" id="settingApiKey" placeholder="hitchk_...">
-                
-                <label style="font-size: 11px; color: #888;">HITTER BACKEND URL</label>
-                <input type="text" id="settingApiUrl" placeholder="https://...">
-                
-                <label style="font-size: 11px; color: #888;">LINK EXTRACTOR API URL</label>
-                <input type="text" id="settingExtractApi" placeholder="https://...">
-                
-                <div style="margin-top: 15px; border-top: 1px solid #2d2f39; padding-top: 15px;">
-                    <h4 style="font-size: 14px; margin-bottom: 10px; color: #3b82f6;"><i class="fas fa-link"></i> Mandatory Channels & Groups</h4>
-                    <div id="channelList" style="margin-bottom: 10px;">
-                        <!-- List of channels will appear here -->
-                    </div>
-                    <div style="display: flex; gap: 5px;">
-                        <input type="text" id="newChannelInput" placeholder="@username or -100..." style="margin-bottom: 0;">
-                        <button onclick="addChannel()" style="width: auto; padding: 0 15px; background: #10b981;">Add</button>
-                    </div>
-                    <p style="font-size: 10px; color: #888; margin-top: 5px;">Bot must be an admin in these channels/groups.</p>
-                </div>
-
-                <button onclick="saveSettings()" id="saveSettingsBtn" style="background: #ed8936; margin-top: 20px;">Update API & Channel Settings</button>
-            </div>
-
-            <div class="admin-card">
-                <h3 style="color: #3b82f6;">Generate Promo Code (Limited Uses + Hourly)</h3>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                    <div>
-                        <label style="font-size: 11px; color: #888;">PLAN</label>
-                        <select id="promoPlan">
-                            <option value="silver">Silver</option>
-                            <option value="gold">Gold</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label style="font-size: 11px; color: #888;">MAX USERS</label>
-                        <input type="number" id="promoMaxUses" value="10" placeholder="e.g. 50">
-                    </div>
-                </div>
-                <label style="font-size: 11px; color: #888;">DURATION (In Hours)</label>
-                <input type="number" id="promoDuration" value="1" placeholder="e.g. 1 (for 1 hour)">
-                
-                <button onclick="generatePromo()" style="background: #1d4ed8;">Generate Promo Code</button>
-                
-                <div id="promoResult" class="hidden">
-                    <div class="code-display" id="generatedPromo" style="background: #1e3a8a; color: #60a5fa;"></div>
-                    <p style="font-size: 12px; margin-top: 5px; color: #888;">This code works for multiple users until the limit is reached.</p>
-                </div>
-            </div>
-
-            <div class="admin-card">
-                <h3 style="color: #ec4899;"><i class="fas fa-bullhorn"></i> Send Broadcast Message</h3>
-                <label style="font-size: 11px; color: #888;">MESSAGE (HTML Supported)</label>
-                <textarea id="broadcastMsg" placeholder="🔥 Hello Users!..." rows="4" style="background: #0f111a; border: 1px solid #2d2f39; color: white; padding: 10px; border-radius: 6px; margin-bottom: 10px; width: 100%; font-family: inherit; font-size: 14px;"></textarea>
-                
-                <button onclick="sendBroadcast()" id="broadcastBtn" style="background: #ec4899;">Send Broadcast to All Users</button>
-                
-                <div id="broadcastStatus" style="font-size: 12px; margin-top: 10px; color: #10b981;"></div>
-            </div>
-
-            <div class="admin-card">
-                <h3>Direct Activation (by Chat ID)</h3>
-                <input type="text" id="directChatId" placeholder="User Chat ID (e.g. 1268860)">
-                <select id="directPlan">
-                    <option value="silver">Silver Plan ($5)</option>
-                    <option value="gold">Gold Plan ($7)</option>
-                    <option value="free">Free Plan (Reset)</option>
-                </select>
-                <select id="directDuration">
-                    <option value="7days">7 Days Validity</option>
-                    <option value="permanent">Permanent (No Expiry)</option>
-                </select>
-                <button onclick="directUpdate()" id="directBtn">Activate Plan Now</button>
-            </div>
-
-            <div class="admin-card">
-                <h3>Registered Users</h3>
-                <button onclick="loadUsers()">Refresh Users List</button>
-                <div style="overflow-x: auto;">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Chat ID</th>
-                                <th>Plan</th>
-                                <th>Hits Today</th>
-                                <th>Total Hits</th>
-                                <th>Referrals</th>
-                                <th>Expiry</th>
-                                <th>Action</th>
-                            </tr>
-                        </thead>
-                        <tbody id="userList">
-                            <!-- User list injected here -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+            <p style="color: var(--text-dim); margin-bottom: 24px;">Please authenticate to access the dashboard.</p>
+            <input type="password" id="adminPwd" placeholder="Admin Password" style="text-align: center;">
+            <button class="btn-primary" onclick="loadAdmin()">Login to Secure Area</button>
         </div>
     </div>
+
+    <aside class="sidebar">
+        <div class="logo">
+            <i class="fas fa-bolt"></i>
+            <span>Hitter Admin</span>
+        </div>
+        <nav>
+            <div class="nav-item active" onclick="switchSection('dashboard', this)">
+                <i class="fas fa-chart-pie"></i>
+                <span>Dashboard</span>
+            </div>
+            <div class="nav-item" onclick="switchSection('users', this)">
+                <i class="fas fa-users"></i>
+                <span>User Management</span>
+            </div>
+            <div class="nav-item" onclick="switchSection('codes', this)">
+                <i class="fas fa-ticket"></i>
+                <span>Redeem Codes</span>
+            </div>
+            <div class="nav-item" onclick="switchSection('promo', this)">
+                <i class="fas fa-tags"></i>
+                <span>Promo Codes</span>
+            </div>
+            <div class="nav-item" onclick="switchSection('broadcast', this)">
+                <i class="fas fa-bullhorn"></i>
+                <span>Broadcast</span>
+            </div>
+            <div class="nav-item" onclick="switchSection('settings', this)">
+                <i class="fas fa-sliders"></i>
+                <span>System Settings</span>
+            </div>
+        </nav>
+        
+        <div style="position: absolute; bottom: 24px; left: 24px; right: 24px;">
+            <div class="nav-item" onclick="logoutAdmin()" style="color: var(--danger); background: rgba(239, 68, 68, 0.05);">
+                <i class="fas fa-sign-out-alt"></i>
+                <span>Logout</span>
+            </div>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <div id="adminContent" class="hidden">
+            <header class="top-bar">
+                <div class="welcome-text">
+                    <h1 id="sectionTitle">Dashboard Overview</h1>
+                    <p>Welcome back, Admin. System is running healthy.</p>
+                </div>
+            </header>
+
+            <!-- DASHBOARD VIEW -->
+            <div id="view-dashboard" class="view-item">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-info">
+                            <h3>Total Users</h3>
+                            <div class="value" id="statTotalUsers">0</div>
+                        </div>
+                        <div class="stat-icon" style="background: rgba(99, 102, 241, 0.1); color: var(--accent-primary);">
+                            <i class="fas fa-user-group"></i>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-info">
+                            <h3>Premium Users</h3>
+                            <div class="value" id="statPremiumUsers">0</div>
+                        </div>
+                        <div class="stat-icon" style="background: rgba(16, 185, 129, 0.1); color: var(--success);">
+                            <i class="fas fa-crown"></i>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-info">
+                            <h3>Total Hits</h3>
+                            <div class="value" id="statTotalHits">0</div>
+                        </div>
+                        <div class="stat-icon" style="background: rgba(245, 158, 11, 0.1); color: var(--warning);">
+                            <i class="fas fa-fire"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-clock"></i> Recent Activity</h2>
+                        <button class="btn-primary" style="width: auto; padding: 8px 16px; font-size: 0.8rem;" onclick="loadUsers()">Refresh Data</button>
+                    </div>
+                    <p style="color: var(--text-dim);">Navigate to 'User Management' for detailed logs.</p>
+                </div>
+            </div>
+
+            <!-- USERS VIEW -->
+            <div id="view-users" class="view-item hidden">
+                <div class="glass-card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-user-pen"></i> Direct Activation</h2>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                        <input type="text" id="directChatId" placeholder="User Chat ID">
+                        <select id="directPlan">
+                            <option value="silver">Silver Plan ($5)</option>
+                            <option value="gold">Gold Plan ($7)</option>
+                            <option value="free">Free Plan (Reset)</option>
+                        </select>
+                        <select id="directDuration">
+                            <option value="7days">7 Days Validity</option>
+                            <option value="permanent">Permanent (No Expiry)</option>
+                        </select>
+                        <button class="btn-primary" onclick="directUpdate()" id="directBtn">Update User</button>
+                    </div>
+                </div>
+
+                <div class="glass-card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-table-list"></i> Userbase Database</h2>
+                        <button class="btn-primary" style="width: auto; padding: 8px 16px;" onclick="loadUsers()">
+                            <i class="fas fa-sync"></i> Refresh
+                        </button>
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Chat ID</th>
+                                    <th>Plan Type</th>
+                                    <th>Daily Usage</th>
+                                    <th>Lifetime</th>
+                                    <th>Referrals</th>
+                                    <th>Expiry</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="userList"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CODES VIEW -->
+            <div id="view-codes" class="view-item hidden">
+                <div class="glass-card" style="max-width: 600px;">
+                    <div class="card-header">
+                        <h2><i class="fas fa-plus"></i> Generate 7-Day Script</h2>
+                    </div>
+                    <label style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 8px; display: block;">SELECT TARGET PLAN</label>
+                    <select id="codePlan">
+                        <option value="silver">Silver Tier Activation</option>
+                        <option value="gold">Gold Tier Activation</option>
+                    </select>
+                    <button class="btn-primary" onclick="generateCode()" style="margin-top: 10px;">Create Redeem Code</button>
+                    
+                    <div id="codeResult" class="hidden" style="margin-top: 24px; padding: 20px; background: rgba(16, 185, 129, 0.05); border: 1px dashed var(--success); border-radius: 12px; text-align: center;">
+                        <div id="generatedCode" style="font-family: monospace; font-size: 1.5rem; font-weight: 700; color: var(--success); letter-spacing: 2px;"></div>
+                        <p style="font-size: 0.8rem; margin-top: 8px; color: var(--text-dim);">Redeemable by one user within the Telegram bot.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PROMO VIEW -->
+            <div id="view-promo" class="view-item hidden">
+                <div class="glass-card" style="max-width: 600px;">
+                    <div class="card-header">
+                        <h2><i class="fas fa-percent"></i> Bulk Promo Generator</h2>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div>
+                            <label style="font-size: 0.75rem; color: var(--text-dim);">PLAN</label>
+                            <select id="promoPlan">
+                                <option value="silver">Silver</option>
+                                <option value="gold">Gold</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size: 0.75rem; color: var(--text-dim);">MAX USERS</label>
+                            <input type="number" id="promoMaxUses" value="10">
+                        </div>
+                    </div>
+                    <label style="font-size: 0.75rem; color: var(--text-dim);">EXPIRY DURATION (IN HOURS)</label>
+                    <input type="number" id="promoDuration" value="1">
+                    
+                    <button class="btn-primary" onclick="generatePromo()">Verify & Generate Bulk Code</button>
+                    
+                    <div id="promoResult" class="hidden" style="margin-top: 24px; padding: 20px; background: rgba(99, 102, 241, 0.05); border: 1px dashed var(--accent-primary); border-radius: 12px; text-align: center;">
+                        <div id="generatedPromo" style="font-family: monospace; font-size: 1.5rem; font-weight: 700; color: var(--accent-primary); letter-spacing: 2px;"></div>
+                        <p style="font-size: 0.8rem; margin-top: 8px; color: var(--text-dim);">This promo code is available for multiple activations.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BROADCAST VIEW -->
+            <div id="view-broadcast" class="view-item hidden">
+                <div class="glass-card" style="max-width: 800px;">
+                    <div class="card-header">
+                        <h2><i class="fas fa-envelopes-bulk"></i> Global Message Push</h2>
+                    </div>
+                    <p style="color: var(--text-dim); margin-bottom: 20px; font-size: 0.9rem;">Send a direct notification to all users currently in the database. Supports HTML formatting.</p>
+                    <textarea id="broadcastMsg" rows="8" placeholder="🔥 Attention Users! New update has been released..."></textarea>
+                    
+                    <button class="btn-primary" onclick="sendBroadcast()" id="broadcastBtn" style="background: var(--accent-secondary);">
+                        <i class="fas fa-paper-plane"></i> Initialize Broadcast
+                    </button>
+                    
+                    <div id="broadcastStatus" style="font-size: 0.8rem; margin-top: 15px; color: var(--success); font-weight: 600;"></div>
+                </div>
+            </div>
+
+            <!-- SETTINGS VIEW -->
+            <div id="view-settings" class="view-item hidden">
+                <div class="glass-card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-microchip"></i> API & Backend Config</h2>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                        <div>
+                            <label style="font-size: 0.75rem; color: var(--text-dim);">CHECKER API KEY</label>
+                            <input type="text" id="settingApiKey" placeholder="hitchk_...">
+                            
+                            <label style="font-size: 0.75rem; color: var(--text-dim);">HITTER BACKEND ENDPOINT</label>
+                            <input type="text" id="settingApiUrl" placeholder="https://...">
+                            
+                            <label style="font-size: 0.75rem; color: var(--text-dim);">LINK EXTRACTOR API</label>
+                            <input type="text" id="settingExtractApi" placeholder="https://...">
+                        </div>
+                        <div>
+                            <label style="font-size: 0.75rem; color: var(--text-dim);">MANDATORY CHANNELS (JOIN TO ACCESS)</label>
+                            <div id="channelList" style="margin-bottom: 12px; max-height: 150px; overflow-y: auto;"></div>
+                            <div style="display: flex; gap: 8px;">
+                                <input type="text" id="newChannelInput" placeholder="@username" style="margin-bottom: 0;">
+                                <button onclick="addChannel()" style="width: auto; padding: 0 20px; background: var(--success); border-radius: 10px; border: none; color: white; cursor: pointer;">Add</button>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn-primary" onclick="saveSettings()" id="saveSettingsBtn" style="margin-top: 24px; background: var(--warning);">
+                        <i class="fas fa-save"></i> Synchronize Settings
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
 
     <script>
         let password = localStorage.getItem('adminPassword') || '';
@@ -177,9 +474,27 @@
             }
         };
 
-        function loadAdmin() {
+        function switchSection(sectionId, element) {
+            const titles = {
+                'dashboard': 'Dashboard Overview',
+                'users': 'User Management',
+                'codes': 'Redeem Tokens',
+                'promo': 'Promotional Campaigns',
+                'broadcast': 'Global Broadcast',
+                'settings': 'System Configuration'
+            };
+            document.getElementById('sectionTitle').innerText = titles[sectionId];
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            element.classList.add('active');
+            document.querySelectorAll('.view-item').forEach(el => el.classList.add('hidden'));
+            document.getElementById('view-' + sectionId).classList.remove('hidden');
+            if (sectionId === 'dashboard' || sectionId === 'users') loadUsers();
+            if (sectionId === 'settings') loadSettings();
+        }
+
+        async function loadAdmin() {
             password = document.getElementById('adminPwd').value;
-            if (!password) return alert('Enter password');
+            if (!password) return alert('Please enter admin password');
             fetchUsers();
         }
 
@@ -196,21 +511,17 @@
                     body: JSON.stringify({ password })
                 });
                 const data = await res.json();
-                
                 if (data.error) {
-                    alert('Invalid Password');
+                    alert('Invalid Administrator Password');
                     localStorage.removeItem('adminPassword');
                 } else {
                     localStorage.setItem('adminPassword', password);
-                    document.getElementById('loginSection').classList.add('hidden');
+                    document.getElementById('loginOverlay').classList.add('hidden');
                     document.getElementById('adminContent').classList.remove('hidden');
-                    document.getElementById('logoutBtn').classList.remove('hidden');
                     renderUsers(data);
                     loadSettings();
                 }
-            } catch (e) { 
-                alert('Connection Error'); 
-            }
+            } catch (e) { alert('Cluster Connection Failed'); }
         }
 
         let currentChannels = [];
@@ -230,24 +541,22 @@
                     currentChannels = data.channels || [];
                     renderChannelList();
                 }
-            } catch (e) { console.error('Failed to load settings'); }
+            } catch (e) { console.error('Settings Sync Error'); }
         }
 
         function renderChannelList() {
             const list = document.getElementById('channelList');
             list.innerHTML = '';
-            
             if (currentChannels.length === 0) {
-                list.innerHTML = '<p style="font-size: 12px; color: #888;">No channels added.</p>';
+                list.innerHTML = '<p style="font-size: 0.75rem; color: var(--text-dim);">No enforcement channels configured.</p>';
                 return;
             }
-
             currentChannels.forEach((ch, index) => {
                 const item = document.createElement('div');
-                item.style = 'display: flex; justify-content: space-between; align-items: center; background: #0f111a; padding: 8px; border-radius: 4px; border: 1px solid #2d2f39; margin-bottom: 5px;';
+                item.style = 'display: flex; justify-content: space-between; align-items: center; background: rgba(15, 23, 42, 0.4); padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border-color); margin-bottom: 8px;';
                 item.innerHTML = `
-                    <span style="font-size: 13px; font-family: monospace;">${ch}</span>
-                    <button onclick="removeChannel(${index})" style="width: auto; padding: 2px 8px; background: #ef4444; font-size: 11px;">✕</button>
+                    <span style="font-size: 0.85rem; font-family: monospace;">${ch}</span>
+                    <button onclick="removeChannel(${index})" style="background: none; border: none; color: var(--danger); cursor: pointer;"><i class="fas fa-trash-can"></i></button>
                 `;
                 list.appendChild(item);
             });
@@ -256,9 +565,7 @@
         function addChannel() {
             const input = document.getElementById('newChannelInput');
             const val = input.value.trim();
-            if (!val) return;
-            
-            if (!currentChannels.includes(val)) {
+            if (val && !currentChannels.includes(val)) {
                 currentChannels.push(val);
                 renderChannelList();
                 input.value = '';
@@ -275,11 +582,9 @@
             const api_url = document.getElementById('settingApiUrl').value;
             const extract_api = document.getElementById('settingExtractApi').value;
             const channels = currentChannels;
-            
             const btn = document.getElementById('saveSettingsBtn');
             btn.disabled = true;
-            btn.innerText = 'Updating...';
-
+            btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Processing Sync...';
             try {
                 const res = await fetch('/admin/update-settings', {
                     method: 'POST',
@@ -287,60 +592,47 @@
                     body: JSON.stringify({ password, api_key, api_url, extract_api, channels })
                 });
                 const data = await res.json();
-                if (data.success) {
-                    alert('API & Channel Settings Updated Successfully!');
-                } else {
-                    alert(data.error || 'Failed to update');
-                }
-            } catch (e) { alert('Network Error'); }
-            finally {
-                btn.disabled = false;
-                btn.innerText = 'Update API & Channel Settings';
-            }
+                if (data.success) alert('System configuration synchronized successfully.');
+                else alert(data.error);
+            } catch (e) { alert('Network Sync Timeout'); }
+            finally { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Synchronize Settings'; }
         }
 
         function renderUsers(users) {
             const tbody = document.getElementById('userList');
             tbody.innerHTML = '';
-            
             const userEntries = Object.entries(users);
             let total = userEntries.length;
-            let premium = 0;
-            let totalHits = 0;
-
+            let premium = 0, totalHits = 0;
             userEntries.forEach(([id, user]) => {
                 if (user.plan !== 'free') premium++;
-                const uTotalHits = user.total_hits || 0;
-                totalHits += uTotalHits;
-                
+                totalHits += (user.total_hits || 0);
                 const tr = document.createElement('tr');
-                const expiry = user.expiry ? new Date(user.expiry).toLocaleDateString() : 'N/A';
+                const expiry = user.expiry ? new Date(user.expiry).toLocaleDateString() : '—';
                 tr.innerHTML = `
                     <td><code>${id}</code></td>
-                    <td><span class="plan-tag ${user.plan}">${user.plan}</span></td>
-                    <td>${user.hits_today} / ${user.plan === 'free' ? 2 : '∞'}</td>
-                    <td><b>${uTotalHits}</b></td>
+                    <td><span class="status-badge ${user.plan}">${user.plan}</span></td>
+                    <td>${user.hits_today} <span style="color: var(--text-dim);">/ ${user.plan === 'free' ? 2 : '∞'}</span></td>
+                    <td><b>${user.total_hits || 0}</b></td>
                     <td>
-                        <b>${user.referralCount || 0}</b> 
-                        <button onclick="editReferrals('${id}', ${user.referralCount || 0})" style="width: auto; padding: 2px 6px; font-size: 10px; display: inline-block; margin-left: 5px;">Edit</button>
+                        <span style="font-weight: 600;">${user.referralCount || 0}</span>
+                        <button onclick="editReferrals('${id}', ${user.referralCount || 0})" style="background: none; border: none; color: var(--accent-primary); cursor: pointer; margin-left: 5px;"><i class="fas fa-edit"></i></button>
                     </td>
-                    <td>${expiry}</td>
+                    <td style="font-size: 0.8rem; color: var(--text-dim);">${expiry}</td>
                     <td>
-                        <button onclick="quickUpdate('${id}')" style="width: auto; padding: 4px 8px; font-size: 10px; background: #4b5563;">Manage</button>
+                        <button onclick="quickUpdate('${id}')" class="btn-primary" style="padding: 6px 12px; font-size: 0.7rem; width: auto;">Manage</button>
                     </td>
                 `;
                 tbody.appendChild(tr);
             });
-
             document.getElementById('statTotalUsers').innerText = total;
             document.getElementById('statPremiumUsers').innerText = premium;
             document.getElementById('statTotalHits').innerText = totalHits;
         }
 
         async function editReferrals(chatId, current) {
-            const newCount = prompt(`Enter new referral count for ${chatId}:`, current);
+            const newCount = prompt(`Update referrals for ${chatId}:`, current);
             if (newCount === null || newCount === "") return;
-
             try {
                 const res = await fetch('/admin/update-referrals', {
                     method: 'POST',
@@ -348,16 +640,13 @@
                     body: JSON.stringify({ password, targetChatId: chatId, newCount })
                 });
                 const data = await res.json();
-                if (data.success) {
-                    alert(data.message);
-                    fetchUsers();
-                }
-            } catch (e) { alert('Failed to update referrals'); }
+                if (data.success) { alert(data.message); loadUsers(); }
+            } catch (e) { alert('Edit Transaction Failed'); }
         }
 
         function quickUpdate(chatId) {
+            switchSection('users', document.querySelector('.nav-item:nth-child(2)'));
             document.getElementById('directChatId').value = chatId;
-            window.scrollTo({ top: 300, behavior: 'smooth' });
         }
 
         async function generateCode() {
@@ -373,56 +662,36 @@
                     document.getElementById('codeResult').classList.remove('hidden');
                     document.getElementById('generatedCode').innerText = data.code;
                 }
-            } catch (e) { alert('Failed to generate code'); }
+            } catch (e) { alert('Token Encryption Error'); }
         }
 
         async function generatePromo() {
             const plan = document.getElementById('promoPlan').value;
             const maxUses = document.getElementById('promoMaxUses').value;
             const durationHours = document.getElementById('promoDuration').value;
-            
-            const btn = document.querySelector('button[onclick="generatePromo()"]');
-            btn.disabled = true;
-            btn.innerText = 'Generating...';
-
             try {
                 const res = await fetch('/admin/generate-promo', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ password, plan, maxUses, durationHours })
                 });
-
-                if (res.status === 404) {
-                    throw new Error('Server not updated yet. Please push to GitHub and wait 2 minutes.');
-                }
-
                 const data = await res.json();
                 if (data.code) {
                     document.getElementById('promoResult').classList.remove('hidden');
                     document.getElementById('generatedPromo').innerText = data.code;
-                    alert('Promo Code Generated Successfully!');
-                } else {
-                    throw new Error(data.error || 'Unknown server error');
+                    alert('Bulk Promo Created.');
                 }
-            } catch (e) { 
-                alert('Error: ' + e.message); 
-            } finally {
-                btn.disabled = false;
-                btn.innerText = 'Generate Promo Code';
-            }
+            } catch (e) { alert('Promotion Logic Failure'); }
         }
 
         async function directUpdate() {
             const targetChatId = document.getElementById('directChatId').value.trim();
             const plan = document.getElementById('directPlan').value;
             const duration = document.getElementById('directDuration').value;
-
-            if (!targetChatId) return alert('Enter Chat ID');
-
+            if (!targetChatId) return alert('Source Identifier Missing');
             const btn = document.getElementById('directBtn');
             btn.disabled = true;
-            btn.innerText = 'Updating...';
-
+            btn.innerText = 'Applying Changes...';
             try {
                 const res = await fetch('/admin/update-user', {
                     method: 'POST',
@@ -430,60 +699,36 @@
                     body: JSON.stringify({ password, targetChatId, plan, duration })
                 });
                 const data = await res.json();
-                if (data.success) {
-                    alert(data.message);
-                    loadUsers();
-                } else {
-                    alert(data.error || 'Update Failed');
-                }
-            } catch (e) {
-                alert('Connection Error');
-            } finally {
-                btn.disabled = false;
-                btn.innerText = 'Activate Plan Now';
-            }
+                if (data.success) { alert(data.message); loadUsers(); }
+                else alert(data.error);
+            } catch (e) { alert('Terminal Failure'); }
+            finally { btn.disabled = false; btn.innerText = 'Update User'; }
         }
 
-        async function loadUsers() {
-            fetchUsers();
-        }
+        async function loadUsers() { fetchUsers(); }
 
         async function sendBroadcast() {
             const message = document.getElementById('broadcastMsg').value.trim();
-            if (!message) return alert('Enter a message to broadcast');
-
-            if (!confirm(`Are you sure you want to send this message to ALL users?`)) return;
-
+            if (!message) return alert('Payload empty');
+            if (!confirm(`Deploy global broadcast to all production endpoints?`)) return;
             const btn = document.getElementById('broadcastBtn');
             const statusDiv = document.getElementById('broadcastStatus');
-
             btn.disabled = true;
-            btn.innerText = 'Sending Broadcast...';
-            statusDiv.innerText = 'Broadcast in progress. Do not close this page.';
-
+            btn.innerHTML = '<i class="fas fa-satellite-dish fa-spin"></i> Broadcasting...';
             try {
                 const res = await fetch('/admin/broadcast', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ password, message })
                 });
-
                 const data = await res.json();
                 if (data.success) {
                     alert(data.message);
-                    statusDiv.innerText = `Last Broadcast: Sent to ${data.count}, Failed ${data.failed}`;
+                    statusDiv.innerText = `Transmission Success: Received by ${data.count}`;
                     document.getElementById('broadcastMsg').value = '';
-                } else {
-                    alert(data.error || 'Broadcast Failed');
-                    statusDiv.innerText = '';
                 }
-            } catch (e) {
-                alert('Connection Error');
-                statusDiv.innerText = '';
-            } finally {
-                btn.disabled = false;
-                btn.innerText = 'Send Broadcast to All Users';
-            }
+            } catch (e) { alert('Broadband Interference'); }
+            finally { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Initialize Broadcast'; }
         }
     </script>
 </body>

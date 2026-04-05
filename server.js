@@ -73,39 +73,42 @@ async function scrapeStripeInfo(url) {
         let site = 'Stripe Merchant';
         let amount = 'Unknown';
 
-        // --- STRATEGY 1: STRIPE INTERNAL API EMULATION (Super Scrapper) ---
+        // --- STRATEGY 1: STRIPE INTERNAL API EMULATION (Ultimate Scrapper) ---
+        // Extract Session ID and Publishable Key (Deep Search)
         const sessionIdMatch = url.match(/(cs_live_[a-zA-Z0-9]+)/) || html.match(/(cs_live_[a-zA-Z0-9]+)/);
-        const pkKeyMatch = html.match(/(pk_live_[a-zA-Z0-9]{20,})/);
+        const pkKeyMatch = html.match(/(pk_live_[a-zA-Z0-9]{30,})/);
 
         if (sessionIdMatch && pkKeyMatch) {
             const sid = sessionIdMatch[1];
             const pk = pkKeyMatch[1];
-            console.log(`[Scraper] Emulating Stripe API for Session: ${sid}`);
+            console.log(`[Scraper] SID: ${sid.substring(0, 10)}... | PK Found`);
 
             try {
                 const initResponse = await axios.post(`https://api.stripe.com/v1/payment_pages/${sid}/init`, 
-                    `key=${pk}&browser_locale=en-US&redirect_type=url`, 
+                    `key=${pk}&eid=NA&browser_locale=en-US&redirect_type=url`, 
                     {
                         headers: { 
                             'Content-Type': 'application/x-www-form-urlencoded',
                             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                             'Origin': 'https://checkout.stripe.com',
-                            'Referer': 'https://checkout.stripe.com/'
+                            'Referer': 'https://checkout.stripe.com/',
+                            'Accept': 'application/json'
                         }
                     }
                 );
 
                 if (initResponse.data) {
                     const d = initResponse.data;
-                    site = d.display_name || d.merchant_name || site;
-                    const amtDue = d.total_amount_display || d.amount_due_display || d.amount_total_display;
+                    site = d.account_settings?.display_name || d.display_name || d.merchant_name || site;
+                    
+                    const amtDue = d.total_amount_display || d.amount_due_display || d.invoice?.total_display || d.amount_total_display;
                     if (amtDue) {
                         amount = amtDue;
-                    } else if (d.line_items && d.line_items[0]) {
-                        amount = d.line_items[0].amount_display || amount;
                     } else if (d.total_amount) {
                          const currency = (d.currency || 'usd').toUpperCase();
                          amount = `${currency} ${(d.total_amount / 100).toFixed(2)}`;
+                    } else if (d.line_items && d.line_items[0]) {
+                        amount = d.line_items[0].amount_display || amount;
                     }
                     console.log(`[Scraper] API Success: ${site} - ${amount}`);
                     if (site !== 'Stripe Merchant' && amount !== 'Unknown') return finalizeScrape(site, amount);

@@ -121,11 +121,23 @@ async function scrapeStripeInfo(url) {
                 if (initResponse.data) {
                     const d = initResponse.data;
                     site = d.account_settings?.display_name || d.display_name || d.merchant_name || site;
-                    const amtDue = d.total_amount_display || d.amount_due_display || d.invoice?.total_display || d.amount_total_display;
-                    if (amtDue) {
-                        amount = amtDue;
-                    } else if (d.total_amount) {
-                         amount = `${(d.currency || 'usd').toUpperCase()} ${(d.total_amount / 100).toFixed(2)}`;
+                    
+                    // Comprehensive Amount Extraction
+                    const amtRaw = d.total_amount_display || 
+                                 d.amount_due_display || 
+                                 d.invoice?.total_display || 
+                                 d.amount_total_display ||
+                                 d.invoice?.amount_due ||
+                                 d.amount_due ||
+                                 (d.invoice?.lines?.data && d.invoice.lines.data[0]?.amount);
+
+                    if (amtRaw) {
+                        if (typeof amtRaw === 'number') {
+                            const currency = (d.currency || 'usd').toUpperCase();
+                            amount = `${currency} ${(amtRaw / 100).toFixed(2)}`;
+                        } else {
+                            amount = amtRaw;
+                        }
                     }
                     console.log(`[Scraper] API Success: ${site} - ${amount}`);
                     if (site !== 'Stripe Merchant' && amount !== 'Unknown') return finalizeScrape(site, amount);

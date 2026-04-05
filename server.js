@@ -138,14 +138,20 @@ async function scrapeStripeInfo(url) {
             }
         }
 
-        // Final cleanup
-        site = site.replace(/\| Stripe/gi, '').replace(/Stripe/gi, '').trim() || 'Stripe Page';
+        // Final cleanup for Merchant Name
+        site = site.replace(/Back to/gi, '').replace(/Back/gi, '').replace(/Pay /gi, '').replace(/ to /gi, ' ').replace(/\| Stripe/gi, '').replace(/Stripe/gi, '').trim() || 'Stripe Merchant';
         if (site.toLowerCase() === 'checkout' || site.toLowerCase() === 'payment') site = 'Stripe Merchant';
         if (site.length > 25) site = site.substring(0, 22) + '...';
         
-        // Clean up amount (Remove extra currency symbols to avoid double display)
+        // Clean up amount (Extract ONLY numeric value and decimals to avoid double currency symbols in UI)
         if (amount !== 'Unknown') {
-            amount = amount.replace(/Pay /gi, '').replace(/[$€£¥৳]/g, '').trim();
+            // Keep only digits, dots and commas
+            const numericValue = amount.match(/(\d+([.,]\d{2})?)/);
+            if (numericValue) {
+                amount = numericValue[0];
+            } else {
+                amount = amount.replace(/Pay /gi, '').replace(/[$€£¥৳]/g, '').trim();
+            }
         }
 
         console.log(`[Scraper] Result: ${site} - ${amount}`);

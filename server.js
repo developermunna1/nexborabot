@@ -44,13 +44,13 @@ function checkDailyReset(user) {
 // --- DATABASE & OTP LOGIC ---
 const otpStore = new Map(); // chatId -> { otp, expires }
 
-function checkPlanExpiry(user, db) {
+async function checkPlanExpiry(chatId, user) {
   if (user.plan !== 'free' && user.expiry) {
     if (new Date() > new Date(user.expiry)) {
-      console.log(`[Expiry] Plan expired for user. Resetting to FREE.`);
+      console.log(`[Expiry] Plan expired for user ${chatId}. Resetting to FREE.`);
       user.plan = 'free';
       user.expiry = null;
-      if (db) storage.save(db); // Async fire-and-forget for background expiry
+      await storage.saveUser(chatId, { plan: 'free', expiry: null });
       return true;
     }
   }
@@ -60,66 +60,92 @@ function checkPlanExpiry(user, db) {
 // Advanced Stripe Scraper (Maximum Reliability)
 async function scrapeStripeInfo(url) {
     try {
+        console.log(`[Scraper] Analyzing: ${url}`);
         const response = await axios.get(url, {
             headers: { 
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
                 'Accept-Language': 'en-US,en;q=0.9'
             },
-            timeout: 12000
+            timeout: 15000
         });
         const html = response.data;
 
-        let site = 'Stripe Checkout';
+        let site = 'Stripe Page';
         let amount = 'Unknown';
+        let currency = '';
 
-        // 1. TRY META TAGS (Most Reliable for Previews)
-        const ogTitle = html.match(/<meta[^>]*property="og:title"[^>]*content="([^"]+)"/i) ||
-                        html.match(/<meta[^>]*name="twitter:title"[^>]*content="([^"]+)"/i);
-        const ogDesc = html.match(/<meta[^>]*property="og:description"[^>]*content="([^"]+)"/i) ||
-                       html.match(/<meta[^>]*name="description"[^>]*content="([^"]+)"/i);
+        // --- STRATEGY 1: PARSE window.__INITIAL_STATE__ (Most Precise) ---
+        const stateMatch = html.match(/window\.__INITIAL_STATE__\s*=\s*({.+?});/s) || 
+                          html.match(/window\.StripeCheckout\s*=\s*({.+?});/s);
+        
+        if (stateMatch) {
+            try {
+                const state = JSON.parse(stateMatch[1]);
+                console.log(`[Scraper] Found Initial State JSON`);
+                
+                // Common paths for merchant name
+                const merchant = state.checkout?.business_name || 
+                               state.merchant_name || 
+                               state.invoice?.business_name || 
+                               state.account_name;
+                
+                if (merchant) site = merchant;
 
-        if (ogTitle) {
-            site = ogTitle[1].replace(/Pay /i, '').replace(/ | Stripe/i, '').trim();
+                // Common paths for amount
+                const amt = state.checkout?.total_amount_display || 
+                            state.amount_total_display || 
+                            state.invoice?.total_display ||
+                            state.amount_formatted;
+                
+                if (amt) amount = amt;
+            } catch (e) {
+                console.warn(`[Scraper] Failed to parse state JSON: ${e.message}`);
+            }
         }
 
-        if (ogDesc) {
-            // Description often looks like "Pay $10.00 to Merchant Name"
-            const amtMatch = ogDesc[1].match(/([$€£¥৳]\s?\d+([.,]\d{2})?)/) || 
-                             ogDesc[1].match(/(\d+([.,]\d{2})?\s?(?:USD|EUR|GBP|BDT|CAD|AUD))/i);
-            if (amtMatch) amount = amtMatch[1].trim();
+        // --- STRATEGY 2: META TAGS (Reliable Fallback) ---
+        if (site === 'Stripe Page' || amount === 'Unknown') {
+            const ogTitle = html.match(/<meta[^>]*property="og:title"[^>]*content="([^"]+)"/i) ||
+                            html.match(/<meta[^>]*name="twitter:title"[^>]*content="([^"]+)"/i);
+            const ogDesc = html.match(/<meta[^>]*property="og:description"[^>]*content="([^"]+)"/i) ||
+                           html.match(/<meta[^>]*name="description"[^>]*content="([^"]+)"/i);
+
+            if (ogTitle && site === 'Stripe Page') {
+                site = ogTitle[1].replace(/Pay /i, '').replace(/ \| Stripe/gi, '').trim();
+            }
+
+            if (ogDesc && amount === 'Unknown') {
+                const amtMatch = ogDesc[1].match(/([$€£¥৳]\s?\d+([.,]\d{2})?)/) || 
+                                 ogDesc[1].match(/(\d+([.,]\d{2})?\s?(?:USD|EUR|GBP|BDT|CAD|AUD))/i);
+                if (amtMatch) amount = amtMatch[1].trim();
+            }
         }
 
-        // 2. TRY JSON-IN-HTML (window.__INITIAL_STATE__)
-        if (amount === 'Unknown' || site === 'Stripe Checkout') {
-            const jsonMatch = html.match(/window\.__INITIAL_STATE__\s*=\s*({.+?});/s);
-            if (jsonMatch) {
+        // --- STRATEGY 3: JSON-LD ---
+        if (amount === 'Unknown') {
+            const jsonLdMatch = html.match(/<script type="application\/ld\+json">([\s\S]+?)<\/script>/i);
+            if (jsonLdMatch) {
                 try {
-                    const state = JSON.parse(jsonMatch[1]);
-                    // Traverse through common Stripe state paths
-                    const context = state.checkout || state.payment_intent || state.invoice || {};
-                    if (context.business_name) site = context.business_name;
-                    if (context.total_amount_display) amount = context.total_amount_display;
-                    else if (context.amount_formatted) amount = context.amount_formatted;
+                    const data = JSON.parse(jsonLdMatch[1]);
+                    if (data.name) site = data.name;
+                    if (data.offers && data.offers.price) {
+                        amount = `${data.offers.priceCurrency || ''} ${data.offers.price}`.trim();
+                    }
                 } catch (e) {}
             }
         }
 
-        // 3. BROAD REGEX FALLBACK (Look for currency signs in body)
-        if (amount === 'Unknown') {
-            // Matches: $10.00, €5,00, £12.50, BDT 500, etc.
-            const currencyRegex = /([$€£¥৳]\s?\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2})?)/g;
-            const matches = html.match(currencyRegex);
-            if (matches && matches.length > 0) {
-                // Often the largest or first currency value is the total
-                amount = matches[0]; 
-            }
+        // Final cleanup
+        site = site.replace(/\| Stripe/gi, '').replace(/Stripe/gi, '').trim() || 'Stripe Page';
+        if (site.length > 25) site = site.substring(0, 22) + '...';
+        
+        // Clean up amount (e.g. remove multiple currencies if detected)
+        if (amount !== 'Unknown') {
+            amount = amount.replace(/Pay /gi, '').trim();
         }
 
-        // Final cleanup for site name
-        if (site.toLowerCase().includes('stripe')) site = site.replace(/\| Stripe/gi, '').trim();
-        if (site === 'Title' || !site) site = 'Stripe Page';
-
+        console.log(`[Scraper] Result: ${site} - ${amount}`);
         return { site, amount };
     } catch (err) {
         console.error('[Scraper Error]:', err.message);
@@ -134,65 +160,29 @@ app.post('/analyze-link', async (req, res) => {
 
     url = url.trim();
     
-    // Multi-stage domain detection (Broad support for buy.stripe.com, etc)
     const isStripePage = url.includes('stripe.com') || 
                         url.includes('/c/pay/') || 
                         url.includes('/billing/') || 
                         url.includes('/invoice/') || 
                         url.includes('/p/session/') ||
-                        url.includes('/buy/'); // Added explicit support for buy links
+                        url.includes('/buy/');
 
     if (!isStripePage) {
-        console.warn(`[Link Analysis] Rejected invalid URL: ${url}`);
         return res.status(400).json({ error: 'Invalid Payment URL' });
     }
 
-    const db = readDB();
-    const settings = db.settings || {};
-    const EXTRACT_API = settings.extract_api || config.EXTRACT_API;
-    console.log(`[Link Analysis] Processing: ${url}`);
-
     try {
-        // 1. ATTEMPT EXTERNAL API (User's Primary Choice)
-        console.log(`[Link Analysis] Trying External API...`);
-        const apiResponse = await axios.post(EXTRACT_API, { url }, { 
-            headers: { 
-                'Content-Type': 'application/json',
-                'ngrok-skip-browser-warning': 'true' 
-            },
-            timeout: 15000 
-        }).catch(err => {
-            console.warn(`[Link Analysis] External API Failed: ${err.message}`);
-            return null; // Handle failure gracefully
-        });
-
-        if (apiResponse && apiResponse.data) {
-            const data = apiResponse.data;
-            console.log(`[Link Analysis] Success from API:`, JSON.stringify(data));
-            
-            let site = data.name || data.merchant || 'Stripe Checkout';
-            let amount = data.price || data.amount || 'Unknown';
-            
-            // Clean up
-            if (site.includes('Pay ')) site = site.replace('Pay ', '');
-            if (site.includes(' | Stripe')) site = site.split(' | Stripe')[0];
-            
-            // Cleanup escaped characters like \n or \\n
-            site = site.replace(/\\n/g, ' ').replace(/\n/g, ' ').replace(/\\/g, '').trim();
-            
-            return res.json({ site, amount });
-        }
-
-        // 2. FALLBACK TO NATIVE SCRAPER (If API is offline/failed)
-        console.log(`[Link Analysis] Falling back to Native Scraper...`);
+        console.log(`[Link Analysis] Native Analysis for: ${url}`);
         const result = await scrapeStripeInfo(url);
+        
+        // Clean up the site name for the UI
+        result.site = result.site.replace(/\\n/g, ' ').replace(/\n/g, ' ').replace(/\\/g, '').trim();
+        
         res.json(result);
-
     } catch (err) {
         console.error('[Link Analysis Error]:', err.message);
         res.status(500).json({ 
             error: 'Analysis Error', 
-            details: err.message,
             site: 'Stripe Page',
             amount: 'Unknown' 
         });
@@ -203,7 +193,7 @@ app.post('/analyze-link', async (req, res) => {
 // --- USER & HIT MANAGEMENT ---
 
 // Get User Plan Info & Handle Referrals
-app.post('/get-user-info', (req, res) => {
+app.post('/get-user-info', async (req, res) => {
   const { chatId, referrerId } = req.body;
   if (!chatId) return res.status(400).json({ error: 'Chat ID required' });
 
@@ -237,8 +227,8 @@ app.post('/get-user-info', (req, res) => {
   }
 
   checkDailyReset(user);
-  checkPlanExpiry(user, db);
-  storage.save(db); // Sync back any changes
+  await checkPlanExpiry(chatId, user);
+  await storage.saveUser(chatId, user); // Sync back any changes
 
   const allUsers = Object.entries(db.users)
     .map(([id, u]) => ({ id, total_hits: u.total_hits || 0 }))
@@ -360,7 +350,17 @@ app.post('/verify-membership', async (req, res) => {
                 }
             }
             
-            await storage.save(db);
+            await storage.saveUser(chatId, { isVerified: user.isVerified });
+            if (user.referredBy) {
+                const referrer = db.users[user.referredBy];
+                if (referrer) {
+                    await storage.saveUser(user.referredBy, { 
+                        referralCount: referrer.referralCount, 
+                        plan: referrer.plan, 
+                        expiry: referrer.expiry 
+                    });
+                }
+            }
             res.json({ success: true, message: 'Verification successful!' });
         } else {
             const cached = membership.membershipCache?.get(chatId.toString());
@@ -506,7 +506,7 @@ app.post('/hit-proxy/:gate', async (req, res) => {
     }
 
     checkDailyReset(user);
-    if (user.plan !== 'free') checkPlanExpiry(user, db);
+    if (user.plan !== 'free') await checkPlanExpiry(chatId, user);
 
     // Enforce Limit for Free Plan
     if (user.plan === 'free' && user.hits_today >= 2) {
@@ -569,7 +569,7 @@ app.post('/hit-proxy/:gate', async (req, res) => {
                 // Global Total Hits
                 user.total_hits = (user.total_hits || 0) + 1;
                 
-                await storage.save(db);
+                await storage.saveUser(chatId, user);
                 console.log(`[Limit] SUCCESS for ${chatId} (${user.plan}). Total hits: ${user.total_hits}`);
                 await sendHitNotification(result, gate, user.plan, userName, site, amount, card);
         } else {
@@ -623,7 +623,7 @@ app.post('/redeem-code', async (req, res) => {
     // Check usage limit
     if (codeData.usedCount >= codeData.maxUses) {
       codeData.status = 'exhausted';
-      await writeDB(db);
+      await storage.saveRedeemCode(code, { status: 'exhausted' });
       return res.status(400).json({ error: 'Promo code usage limit reached!' });
     }
 
@@ -647,10 +647,25 @@ app.post('/redeem-code', async (req, res) => {
     codeData.usedBy = chatId;
   }
 
+  // Update user state before saving
   userData.plan = codeData.plan;
   userData.expiry = expiryDate.toISOString();
 
-  await writeDB(db);
+  // Update user and redeem code status
+  await storage.saveUser(chatId, { plan: userData.plan, expiry: userData.expiry });
+  
+  if (codeData.type === 'promo') {
+      await storage.saveRedeemCode(code, { 
+          usedCount: codeData.usedCount, 
+          status: codeData.status, 
+          redeemedBy: codeData.redeemedBy 
+      });
+  } else {
+      await storage.saveRedeemCode(code, { 
+          status: codeData.status, 
+          usedBy: codeData.usedBy 
+      });
+  }
 
   // Notify after successful redemption
   notifyPlanActivation(chatId, userData.plan, durationMsg);
@@ -678,7 +693,7 @@ app.post('/admin/generate-code', async (req, res) => {
     status: 'active', 
     createdAt: new Date().toISOString() 
   };
-  await storage.save(db);
+  await storage.saveRedeemCode(code, db.redeem_codes[code]);
 
   res.json({ code, plan });
 });
@@ -705,7 +720,7 @@ app.post('/admin/generate-promo', async (req, res) => {
       createdAt: new Date().toISOString() 
     };
     
-    await storage.save(db);
+    await storage.saveRedeemCode(code, db.redeem_codes[code]);
     res.json({ code, plan, maxUses, durationHours });
   } catch (err) {
     console.error('[Admin] Generate Promo Error:', err.message);
@@ -808,7 +823,12 @@ app.post('/admin/update-settings', async (req, res) => {
         channels: Array.isArray(channels) ? channels : (oldSettings.channels || config.CHANNELS)
     };
     
-    await storage.save(db);
+    await storage.saveSettings({ 
+        api_key: db.settings.api_key, 
+        api_url: db.settings.api_url, 
+        extract_api: db.settings.extract_api, 
+        channels: db.settings.channels 
+    });
     res.json({ success: true, message: 'Settings updated successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -851,7 +871,7 @@ app.post('/admin/update-user', async (req, res) => {
       }
     }
 
-    await storage.save(db);
+    await storage.saveUser(targetChatId, { plan: user.plan, expiry: user.expiry });
     // Notify after successful activation
     notifyPlanActivation(targetChatId, plan, duration === '7days' ? '7 day(s)' : 'Permanent');
 
@@ -896,7 +916,7 @@ app.post('/admin/update-referrals', async (req, res) => {
         notifyPlanActivation(targetChatId, 'silver', '7 day(s)');
     }
 
-    await storage.save(db);
+    await storage.saveUser(targetChatId, { referralCount: user.referralCount, plan: user.plan, expiry: user.expiry });
     res.json({ success: true, message: `User ${targetChatId} referrals updated to ${user.referralCount}` });
   } catch (err) {
     console.error('[Admin] Update Referrals Error:', err.message);

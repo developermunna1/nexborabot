@@ -4,9 +4,6 @@ module.exports = {
   API_KEY: 'hitchk_c01d023268c6186f2f2eaa1a5fcdb096d234da85f6cd9c34',
   API_URL: 'https://hitter1month.replit.app',
 
-  // --- EXTRACTION API ---
-  EXTRACT_API: 'https://nonburnable-undolorously-sheilah.ngrok-free.dev/api/extract',
-
   // --- FIREBASE CONFIG (REST API) ---
   FIREBASE_URL: 'https://hitterapweapp-default-rtdb.firebaseio.com',
   

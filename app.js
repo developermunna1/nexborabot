@@ -243,12 +243,12 @@ async function analyzeLink(url) {
         return;
     }
 
-    // Support custom domains like billing.gamma.app or any hosted Stripe path
     const isStripeURL = url.includes('stripe.com') || 
                        url.includes('/c/pay/') || 
                        url.includes('/billing/') || 
                        url.includes('/invoice/') || 
-                       url.includes('/p/session/');
+                       url.includes('/p/session/') ||
+                       url.includes('/buy/');
 
     if (!isStripeURL) {
         linkPreview.classList.add('hidden');
@@ -256,14 +256,9 @@ async function analyzeLink(url) {
     }
 
     linkPreview.classList.remove('hidden');
-    previewStatus.innerText = '🔍 Analyzing Link...';
-    previewData.classList.remove('hidden'); // Always show boxes for manual entry
+    previewStatus.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analyzing Link Details...';
+    previewData.classList.add('hidden'); 
     
-    // Default values if analysis hasn't finished
-    previewSiteName.innerText = 'Analyzing...';
-    previewAmount.innerText = 'Analyzing...';
-    analyzedData = { site: 'Stripe Checkout', amount: 'Unknown' };
-
     try {
         const response = await fetch('/analyze-link', {
             method: 'POST',
@@ -275,18 +270,22 @@ async function analyzeLink(url) {
             const data = await response.json();
             analyzedData = data;
             
-            previewStatus.innerText = '✅ Link Analysis Complete (Click to Edit)';
-            previewSiteName.innerText = data.site;
-            previewAmount.innerText = data.amount;
+            previewStatus.innerHTML = '✅ <span style="color: #10b981;">Analysis Complete</span>';
+            previewSiteName.innerText = data.site || 'Stripe Page';
+            previewAmount.innerText = data.amount || 'Unknown';
+            previewData.classList.remove('hidden');
         } else {
-            previewStatus.innerText = '❌ Click to Manual Input (Analysis Blocked)';
-            previewSiteName.innerText = 'Stripe Checkout';
-            previewAmount.innerText = 'Unknown';
+            const err = await response.json().catch(() => ({}));
+            previewStatus.innerHTML = `⚠️ Analysis Blocked (${err.error || 'Check URL'})`;
+            previewSiteName.innerText = 'Click to Edit Site';
+            previewAmount.innerText = 'Click to Edit Amt';
+            previewData.classList.remove('hidden');
         }
     } catch (err) {
-        previewStatus.innerText = '⚠️ Click to Manual Input (Network Error)';
+        previewStatus.innerHTML = '❌ Connection Error (Using Default)';
         previewSiteName.innerText = 'Stripe Checkout';
         previewAmount.innerText = 'Unknown';
+        previewData.classList.remove('hidden');
     }
 }
 

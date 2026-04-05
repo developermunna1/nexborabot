@@ -54,12 +54,20 @@ const storage = {
     },
 
     async save(data) {
-        dbCache = data || dbCache;
+        if (data) {
+            // Safety: Never allow overwriting with an empty object if we had data before
+            if (data.users && Object.keys(data.users).length === 0 && dbCache.users && Object.keys(dbCache.users).length > 0) {
+                console.error('[Storage] CRITICAL: Attempted to save empty user list. Aborting save.');
+                return;
+            }
+            dbCache = data;
+        }
+        
         if (!dbCache.users) dbCache.users = {};
         if (!dbCache.redeem_codes) dbCache.redeem_codes = {};
 
         if (!FIREBASE_URL) {
-            fs.writeFileSync(path.join(__dirname, DB_PATH), JSON.stringify(dbCache, null, 2));
+            this.saveLocal();
             return;
         }
 
@@ -67,10 +75,72 @@ const storage = {
             await axios.put(`${FIREBASE_URL}/db.json`, dbCache);
         } catch (err) {
             console.error('[Storage] Firebase save failed:', err.message);
-            // Fallback: update local file just in case
-            try {
-                fs.writeFileSync(path.join(__dirname, DB_PATH), JSON.stringify(dbCache, null, 2));
-            } catch (e) {}
+            this.saveLocal();
+        }
+    },
+
+    async saveUser(chatId, userData) {
+        if (!chatId) return;
+        const id = chatId.toString();
+        
+        // Update local cache
+        if (!dbCache.users[id]) dbCache.users[id] = {};
+        dbCache.users[id] = { ...dbCache.users[id], ...userData };
+
+        if (!FIREBASE_URL) return this.saveLocal();
+
+        try {
+            // Use PATCH to update only specific user's fields
+            await axios.patch(`${FIREBASE_URL}/users/${id}.json`, userData);
+            console.log(`[Storage] Firebase User ${id} updated.`);
+        } catch (err) {
+            console.error(`[Storage] Firebase User ${id} save failed:`, err.message);
+            this.saveLocal();
+        }
+    },
+
+    async saveRedeemCode(code, codeData) {
+        if (!code) return;
+        
+        // Update local cache
+        if (!dbCache.redeem_codes[code]) dbCache.redeem_codes[code] = {};
+        dbCache.redeem_codes[code] = { ...dbCache.redeem_codes[code], ...codeData };
+
+        if (!FIREBASE_URL) return this.saveLocal();
+
+        try {
+            // Use PATCH to update only specific code's fields
+            await axios.patch(`${FIREBASE_URL}/redeem_codes/${code}.json`, codeData);
+            console.log(`[Storage] Firebase Redeem Code ${code} updated.`);
+        } catch (err) {
+            console.error(`[Storage] Firebase Redeem Code ${code} save failed:`, err.message);
+            this.saveLocal();
+        }
+    },
+
+    async saveSettings(settingsData) {
+        if (!settingsData) return;
+        
+        // Update local cache
+        dbCache.settings = { ...(dbCache.settings || {}), ...settingsData };
+
+        if (!FIREBASE_URL) return this.saveLocal();
+
+        try {
+            // Use PATCH to update settings node
+            await axios.patch(`${FIREBASE_URL}/settings.json`, settingsData);
+            console.log(`[Storage] Firebase Settings updated.`);
+        } catch (err) {
+            console.error(`[Storage] Firebase Settings save failed:`, err.message);
+            this.saveLocal();
+        }
+    },
+
+    saveLocal() {
+        try {
+            fs.writeFileSync(path.join(__dirname, DB_PATH), JSON.stringify(dbCache, null, 2));
+        } catch (e) {
+            console.error('[Storage] Local save failed:', e.message);
         }
     },
 

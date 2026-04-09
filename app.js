@@ -298,7 +298,8 @@ const handleUrlChange = (e) => {
 targetUrlInput.addEventListener('input', handleUrlChange);
 targetUrlInput.addEventListener('paste', handleUrlChange);
 
-// Manual Override Logic
+// Manual Override Logic (DISABLED per user request)
+/*
 previewSiteName.parentElement.onclick = () => {
     const newName = prompt('Enter Site Name:', previewSiteName.innerText);
     if (newName) {
@@ -314,6 +315,7 @@ previewAmount.parentElement.onclick = () => {
         analyzedData.amount = newAmount;
     }
 };
+*/
 
 // BIN Generation Logic
 function generateLuhnCheckDigit(number) {
@@ -467,7 +469,17 @@ hitBtn.addEventListener('click', async () => {
             processHitResult(card, result, elapsed, i + 1, cards.length);
 
             // STOP IMMEDIATELY if hit is successful
-            const isSuccess = result.status === 'charged' || result.status === 'approved' || (result.message && result.message.toLowerCase().includes('checkout_succeeded_session'));
+            const status = (result.status || '').toLowerCase();
+            const lowerMsg = (result.message || result.error || '').toLowerCase();
+            const isSuccess = status === 'charged' || 
+                             status === 'approved' || 
+                             status === 'succeeded' || 
+                             status === 'success' || 
+                             status === 'live' ||
+                             lowerMsg.includes('checkout_succeeded_session') ||
+                             lowerMsg.includes('payment_intent_succeeded') ||
+                             lowerMsg.includes('charged successfully');
+
             if (isSuccess) {
                 isHitting = false;
                 break; 
@@ -503,21 +515,28 @@ function processHitResult(card, res, elapsed, count, total) {
     stats.total++;
     
     const lowerMsg = (res.message || res.error || '').toLowerCase();
-    const isSuccess = status === 'charged' || status === 'approved' || lowerMsg.includes('checkout_succeeded_session');
+    const isSuccess = status === 'charged' || 
+                     status === 'approved' || 
+                     status === 'succeeded' || 
+                     status === 'success' || 
+                     status === 'live' ||
+                     lowerMsg.includes('checkout_succeeded_session') ||
+                     lowerMsg.includes('payment_intent_succeeded') ||
+                     lowerMsg.includes('charged successfully');
     
     if (isSuccess) {
         stats.charged++;
         chargedCards.push(card);
         showSuccessCard(card, res, count, total);
         if (tg) tg.HapticFeedback.notificationOccurred('success');
-    } else if (status === '3ds_bypassed' || status === 'live') {
-        const lowerMsg = (res.message || res.error || '').toLowerCase();
-        if (!lowerMsg.includes('authentication required') && !lowerMsg.includes('challenge required')) {
+    } else if (status === '3ds_bypassed' || status === 'live_bypassed' || lowerMsg.includes('3ds bypassed')) {
+        const lowerMsgStr = (res.message || res.error || '').toLowerCase();
+        if (!lowerMsgStr.includes('authentication required') && !lowerMsgStr.includes('challenge required')) {
             stats.bypassed++;
         }
     }
 
-    injectLog(res.card || card, status, message, elapsed, res.bypassed_3ds);
+    injectLog(res.card || card, status, message, elapsed, res.bypassed_3ds || lowerMsg.includes('3ds bypassed'));
     updateStatsUI();
 }
 
@@ -545,18 +564,34 @@ function injectLog(card, status, message, elapsed, bypassed3ds = false) {
     let cleanMessage = message || 'Unknown Error';
     const lowerMsg = cleanMessage.toLowerCase();
 
-    if (status === 'charged' || status === 'approved' || lowerMsg.includes('checkout_succeeded_session')) {
+    const isSuccess = status === 'charged' || 
+                     status === 'approved' || 
+                     status === 'succeeded' || 
+                     status === 'success' || 
+                     status === 'live' ||
+                     lowerMsg.includes('checkout_succeeded_session') ||
+                     lowerMsg.includes('payment_intent_succeeded') ||
+                     lowerMsg.includes('charged successfully');
+
+    if (isSuccess) {
         statusClass = 'success';
-        cleanMessage = 'Charged Successfully';
+        // Priority: Use the API's specific message if it's informative (e.g. contains an amount or specific success text)
+        // Otherwise use default "Charged Successfully"
+        if (!cleanMessage || lowerMsg.includes('resp') || lowerMsg.length < 5) {
+            cleanMessage = 'Charged Successfully';
+        }
     } else if (bypassed3ds || lowerMsg.includes('3ds bypassed')) {
         statusClass = 'bypassed';
         cleanMessage = '3DS Bypassed';
     } else if (lowerMsg.includes('3ds cancelled')) {
         statusClass = 'cancelled';
         cleanMessage = '3DS Cancelled';
-    } else if (lowerMsg.includes('generic_decline')) {
+    } else if (lowerMsg.includes('generic_decline') || lowerMsg.includes('card_declined')) {
         statusClass = 'warning';
-        cleanMessage = 'Generic Declined';
+        // Keep the original message if it has details, else use a friendly label
+        if (lowerMsg === 'generic_decline' || lowerMsg === 'card_declined') {
+            cleanMessage = 'Declined (Generic)';
+        }
     }
     
     const div = document.createElement('div');

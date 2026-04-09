@@ -277,8 +277,8 @@ async function analyzeLink(url) {
         } else {
             const err = await response.json().catch(() => ({}));
             previewStatus.innerHTML = `⚠️ Analysis Blocked (${err.error || 'Check URL'})`;
-            previewSiteName.innerText = 'Click to Edit Site';
-            previewAmount.innerText = 'Click to Edit Amt';
+            previewSiteName.innerText = 'Site: Unknown';
+            previewAmount.innerText = 'Amt: Unknown';
             previewData.classList.remove('hidden');
         }
     } catch (err) {

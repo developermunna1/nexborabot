@@ -210,14 +210,42 @@ async function scrapeStripeInfo(url) {
 
 // Helper to clean and format final results
 function finalizeScrape(site, amount) {
-    site = site.replace(/Back to/gi, '').replace(/Back/gi, '').replace(/Pay /gi, '').replace(/ to /gi, ' ').replace(/\| Stripe/gi, '').replace(/Stripe/gi, '').replace('Title', '').trim() || 'Stripe Merchant';
-    if (site.toLowerCase() === 'checkout' || site.toLowerCase() === 'payment') site = 'Stripe Merchant';
-    if (site.length > 25) site = site.substring(0, 22) + '...';
-    if (amount !== 'Unknown') {
-        const numM = amount.match(/(\d+([.,]\d{2})?)/);
-        if (numM) amount = numM[0];
-        else amount = amount.replace(/Pay /gi, '').replace(/[$€£¥৳]/g, '').trim();
+    if (!site) site = 'Stripe Merchant';
+    
+    site = site
+        .replace(/\\n/g, ' ')
+        .replace(/\n/g, ' ')
+        .replace(/Back to/gi, '')
+        .replace(/Back/gi, '')
+        .replace(/Pay /gi, '')
+        .replace(/ to /gi, ' ')
+        .replace(/\| Stripe/gi, '')
+        .replace(/Stripe/gi, '')
+        .replace('Title', '')
+        .replace(/\\/g, '')
+        .trim() || 'Stripe Merchant';
+
+    if (site.toLowerCase() === 'checkout' || site.toLowerCase() === 'payment' || site.toLowerCase() === 'gateway') {
+        site = 'Stripe Merchant';
     }
+    
+    if (site.length > 25) {
+        site = site.substring(0, 22) + '...';
+    }
+
+    if (amount && amount !== 'Unknown') {
+        const numM = amount.match(/(\d+([.,]\d{2})?)/);
+        if (numM) {
+            const currencyMatch = amount.match(/([$€£¥৳]|USD|EUR|GBP|BDT)/i);
+            const currency = currencyMatch ? currencyMatch[0].toUpperCase() : '$';
+            amount = `${currency} ${numM[0]}`;
+        } else {
+            amount = amount.replace(/Pay /gi, '').trim();
+        }
+    } else {
+        amount = 'Unknown';
+    }
+
     return { site, amount };
 }
 

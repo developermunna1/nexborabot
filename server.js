@@ -1066,14 +1066,29 @@ function startKeepAlive() {
 }
 
 async function startServer() {
-  // Sync DB on Startup
-  await storage.init();
+  console.log('🚀 Starting Server...');
   
+  // 1. LISTEN IMMEDIATELY (Render Requirement)
+  // This tells Render the service is healthy right away
   app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-    console.log(`Open http://localhost:${PORT} to view your app`);
+    console.log(`✅ Server is running on port ${PORT}`);
+    console.log(`🔗 Local View: http://localhost:${PORT}`);
+    
+    // 2. BACKGROUND INITIALIZATION
+    // These tasks can run while the server is already serving requests
+    initBackgroundTasks();
+  });
+}
+
+async function initBackgroundTasks() {
+  try {
+    // Ping/Keep-alive
     startKeepAlive();
     
+    // Sync DB
+    await storage.init();
+    console.log('[Init] Database is ready.');
+
     // Launch Bot
     bot.launch()
       .then(() => {
@@ -1083,11 +1098,14 @@ async function startServer() {
         console.error('❌ Telegram Bot Error:', err.message);
         console.log('⚠️ Server will continue running without the bot.');
       });
-  
+
     // Enable graceful stop
     process.once('SIGINT', () => bot.stop('SIGINT'));
     process.once('SIGTERM', () => bot.stop('SIGTERM'));
-  });
+    
+  } catch (err) {
+    console.error('[Background Init Error]:', err.message);
+  }
 }
 
 startServer();

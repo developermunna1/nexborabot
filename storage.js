@@ -34,8 +34,15 @@ const storage = {
 
     async loadFirebase() {
         try {
+            if (!FIREBASE_URL) return this.loadLocal();
+            
             console.log('[Storage] Fetching DB from Firebase...');
-            const response = await axios.get(`${FIREBASE_URL}/db.json`);
+            
+            // Add a timeout to avoid hanging on DNS issues
+            const response = await axios.get(`${FIREBASE_URL}/db.json`, { 
+                timeout: 5000,
+                headers: { 'Accept': 'application/json' }
+            });
             
             if (response.data && typeof response.data === 'object') {
                 dbCache = response.data;
@@ -48,7 +55,7 @@ const storage = {
             }
             return dbCache;
         } catch (err) {
-            console.error('[Storage] Firebase load failed:', err.message);
+            console.error('[Storage] Firebase load failed (falling back to local):', err.message);
             return this.loadLocal();
         }
     },
